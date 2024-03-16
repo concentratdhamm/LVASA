@@ -1,0 +1,1320 @@
+---
+title: "Household Mapping and Listing Tool for Verbal Autopsy Study"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+classoption: portrait
+dfe: format(Sys.time(), '%d %B, %Y %H:%M')
+---
+
+\newpage
+
+# Data Completeness Report
+
+```{r, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
+library(ggplot2)
+library(gtsummary)
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(writexl)
+library(sjmisc)
+library(flextable)
+library(data.table)
+library(plotly)
+library(readr)
+library(stringr)
+
+report_date <- format(Sys.time(), '%d %B, %Y')
+
+df_rep_table <- data.frame(`Site` = c("Study Title", "Chief Investigator Name:", "Co-Investigators:", "Report Date:", "Prepared by:"),
+                                 `Total` = c("HouseholdMapping", "Professor Bosede Afolabi", "Dr. Aduragbemi Banke-Thomas, Dr. Adeyemi Adebola Okunowo, Dr. Victoria Omoera, Dr. Ladi Abudu, Dr. Veronica Iwayemi, Prof. Ololade Wright, Dr. Adedoyin Ogunyemi, Dr. Fatimat Motunrayo Akinlusi, Dr. Donald Imosemi, Dr. Oluchi Kanma-Okafor", report_date, "Hameed Adelabu; Ndubuisi Ezumezu"))
+
+pg1 <- flextable(df_rep_table)
+pg1 <- delete_part(x = pg1, part = "header")
+pg1 <- set_table_properties(pg1, layout = "autofit")
+pg1
+
+```
+
+\newpage
+```{r ck_1, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
+
+# Return all records and all variables
+House_Mapping <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 40,
+    raw_or_label = "label"
+  )$data
+
+House_Mapping <- House_Mapping %>%
+  add_column(`Settlement Locality` = 
+               case_when(
+                 (House_Mapping$lga_name == "Alimosho")  ~ House_Mapping$settlement_locality_1
+                 ,(House_Mapping$lga_name == "Ajeromi")  ~ House_Mapping$settlement_locality_2
+                 ,(House_Mapping$lga_name == "Alimosho")  ~ House_Mapping$settlement_locality_3
+                 ,(House_Mapping$lga_name == "Amuwo odofin")  ~ House_Mapping$settlement_locality_4
+                 ,(House_Mapping$lga_name == "Apapa")  ~ House_Mapping$settlement_locality_5
+                 ,(House_Mapping$lga_name == "Badagry")  ~ House_Mapping$settlement_locality_6
+                 ,(House_Mapping$lga_name == "Epe")  ~ House_Mapping$settlement_locality_7
+                 ,(House_Mapping$lga_name == "Eti-Osa")  ~ House_Mapping$settlement_locality_8
+                 ,(House_Mapping$lga_name == "Ibeju-Lekki")  ~ House_Mapping$settlement_locality_9
+                 ,(House_Mapping$lga_name == "Ifako-Ijaiye")  ~ House_Mapping$settlement_locality_10
+                 ,(House_Mapping$lga_name == "Ikeja")  ~ House_Mapping$settlement_locality_11
+                 ,(House_Mapping$lga_name == "Ikorodu")  ~ House_Mapping$settlement_locality_12
+                 ,(House_Mapping$lga_name == "Kosofe")  ~ House_Mapping$settlement_locality_13
+                 ,(House_Mapping$lga_name == "Lagos Island")  ~ House_Mapping$settlement_locality_14
+                 ,(House_Mapping$lga_name == "Lagos Mainland")  ~ House_Mapping$settlement_locality_15
+                 ,(House_Mapping$lga_name == "Mushin")  ~ House_Mapping$settlement_locality_16
+                 ,(House_Mapping$lga_name == "Ojo")  ~ House_Mapping$settlement_locality_17
+                 ,(House_Mapping$lga_name == "Oshodi-Isolo")  ~ House_Mapping$settlement_locality_18
+                 ,(House_Mapping$lga_name == "Somolu")  ~ House_Mapping$settlement_locality_19
+                 ,(House_Mapping$lga_name == "Surulere")  ~ House_Mapping$settlement_locality_20
+               )
+             , .after = "ward")
+
+# Extract Date 
+House_Mapping <- House_Mapping %>%
+  add_column(date_of_mapping = format(str_sub(House_Mapping$creation_date,1,10), format = "%Y-%m-%d")
+             , .after = "creation_date")
+
+drop_columns <- c('redcap_event_name', 'settlement_locality_1', 'settlement_locality_2', 'settlement_locality_3', 'settlement_locality_4', 'settlement_locality_5', 'settlement_locality_6', 'settlement_locality_7', 'settlement_locality_8', 'settlement_locality_9', 'settlement_locality_10', 'settlement_locality_11', 'settlement_locality_12', 'settlement_locality_13', 'settlement_locality_14', 'settlement_locality_15', 'settlement_locality_16', 'settlement_locality_17', 'settlement_locality_18', 'settlement_locality_19', 'settlement_locality_20', 'creation_date')
+House_Mapping <- House_Mapping %>%
+  select(-one_of(drop_columns))
+
+write_xlsx(House_Mapping, "Unclean_Household.xlsx")
+
+Blanks_Map_ID <- House_Mapping %>%
+  dplyr::filter(is.na(mapping_id))
+
+Ex_Dupli_Map_ID <- House_Mapping %>%
+  dplyr::filter(!is.na(mapping_id))
+
+Ex_Dupli_Map_ID['Selection'] <- "Yes"
+
+for (i in 1:nrow(Ex_Dupli_Map_ID)) {
+  if(Ex_Dupli_Map_ID[i, "lga_name"] == "Eti-Osa" & Ex_Dupli_Map_ID[i, "data_entry_personnel"] != "tab21"){
+    Ex_Dupli_Map_ID[i, "Selection"] <- "No"
+  }
+}
+
+Ex_Dupli_Map_ID <-Ex_Dupli_Map_ID %>%
+  dplyr::filter(Selection == "Yes")
+
+Ex_Dupli_Map_ID <- Ex_Dupli_Map_ID %>%
+  dplyr::filter(!is.na(mapping_id)) %>%
+  group_by(mapping_id) %>%
+  dplyr::filter(row_number()==1)
+
+drop_columns <- c('Selection')
+Ex_Dupli_Map_ID <- Ex_Dupli_Map_ID %>%
+  select(-one_of(drop_columns))
+
+House_Mapping <- rbind(Ex_Dupli_Map_ID, Blanks_Map_ID)
+
+data_personel <- read_xlsx("Tab vs Mappers vs LGA.xlsx", guess_max = 20000)
+
+data_personel <- data_personel %>%
+  add_column(Enumerator = 
+               paste(data_personel$Mapper, data_personel$Lister, sep="\n", collapse=NULL)
+             , .after = "Lister")
+data_personel <- data_personel %>%
+  dplyr::select(lga_name, data_entry_personnel, Enumerator)
+
+House_Mapping <- House_Mapping %>%
+  left_join(data_personel, by = 'lga_name')
+
+House_Mapping <- House_Mapping %>%
+  dplyr::filter(data_entry_personnel.x == data_entry_personnel.y)
+
+drop_columns <- c('data_entry_personnel.y')
+House_Mapping <- House_Mapping %>%
+  select(-one_of(drop_columns))
+
+House_Mapping <- rename(House_Mapping, data_entry_personnel = data_entry_personnel.x)
+
+# Return all records and all variables
+Geolocation <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 41,
+    raw_or_label = "label"
+  )$data
+
+drop_columns <- c('redcap_event_name')
+Geolocation <- Geolocation %>%
+  select(-one_of(drop_columns))
+
+House_Mapping <- House_Mapping %>%
+  left_join(Geolocation, by = 'record_id')
+
+House_Mapping['Status'] <- "Approved"
+
+write_xlsx(House_Mapping, "House_Mapping.xlsx")
+
+# Return all records and all variables
+Household_Q11_22 <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 42,
+    raw_or_label = "label"
+  )$data
+
+Household_Q11_22 <- Household_Q11_22 %>%
+  dplyr::filter(redcap_repeat_instrument == "Household - Q11-22")
+
+House_Mapping_Joiner <- House_Mapping %>%
+  dplyr::select(record_id, lga_name, mapping_id, data_entry_personnel, date_of_mapping, Enumerator, Status)
+
+Household_Q11_22 <- rename(Household_Q11_22, household_no = redcap_repeat_instance)
+
+Household_Q11_22 <- Household_Q11_22 %>%
+  group_by(record_id)
+
+Household_Q11_22 <- Household_Q11_22 %>%
+  left_join(House_Mapping_Joiner, by = 'record_id')
+
+Household_Q11_22 <- Household_Q11_22 %>%
+  dplyr::filter(!is.na(Status))
+
+drop_columns <- c('redcap_event_name', 'redcap_repeat_instrument')
+Household_Q11_22 <- Household_Q11_22 %>%
+  select(-one_of(drop_columns))
+
+Household_Q11_22_Joiner <- Household_Q11_22 %>%
+  dplyr::select(record_id, respondent_name, respondent_name_2, name_of_household_head, household_head_phone_number, name_of_alternative_respond, alternative_phone_number, preferred_day_to_call, preferred_time_to_call)
+
+Household_selecter <- Household_Q11_22 %>%
+  dplyr::select(record_id, household_no, description_to_aid_locatio, respondent_name, name_of_household_head, household_head_phone_number, alternative_phone_number, preferred_day_to_call, preferred_time_to_call)
+
+write_xlsx(Household_Q11_22, "Household_Q11_22.xlsx")
+
+# Return all records and all variables
+About_the_household <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 43,
+    raw_or_label = "label"
+  )$data
+
+About_the_household <- About_the_household %>%
+  dplyr::filter(!is.na(about_household))
+
+About_the_household <- About_the_household %>%
+  group_by(record_id)
+
+About_the_household <- About_the_household %>%
+  left_join(House_Mapping_Joiner, by = 'record_id')
+
+About_the_household <- About_the_household %>%
+  dplyr::filter(!is.na(Status))
+
+drop_columns <- c('redcap_event_name')
+About_the_household <- About_the_household %>%
+  select(-one_of(drop_columns))
+
+write_xlsx(About_the_household, "About_the_household.xlsx")
+
+drop_columns <- c('redcap_repeat_instance')
+#pregnant_woman
+Pregnant_woman <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 44,
+    raw_or_label = "label"
+  )$data
+
+drop_columns <- c('redcap_event_name')
+Pregnant_woman <- Pregnant_woman %>%
+  select(-one_of(drop_columns))
+
+Pregnant_woman <- Pregnant_woman %>%
+  group_by(record_id)
+
+Pregnant_woman <- Pregnant_woman %>%
+  left_join(House_Mapping_Joiner, by = 'record_id')
+
+Pregnant_woman <- Pregnant_woman %>%
+  dplyr::filter(!is.na(Status))
+
+#maternal_death
+Maternal_death <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 45,
+    raw_or_label = "label"
+  )$data
+
+drop_columns <- c('redcap_event_name')
+Maternal_death <- Maternal_death %>%
+  select(-one_of(drop_columns))
+
+Maternal_death <- Maternal_death %>%
+  group_by(record_id)
+
+Maternal_death <- Maternal_death %>%
+  left_join(House_Mapping_Joiner, by = 'record_id')
+
+Maternal_death <- Maternal_death %>%
+  dplyr::filter(!is.na(Status))
+
+#stillbirth
+Stillbirth <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 46,
+    raw_or_label = "label"
+  )$data
+
+drop_columns <- c('redcap_event_name')
+Stillbirth <- Stillbirth %>%
+  select(-one_of(drop_columns))
+
+Stillbirth <- Stillbirth %>%
+  group_by(record_id)
+
+Stillbirth <- Stillbirth %>%
+  left_join(House_Mapping_Joiner, by = 'record_id')
+
+Stillbirth <- Stillbirth %>%
+  dplyr::filter(!is.na(Status))
+
+```
+
+\newpage
+```{r ck_2, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
+
+Tot_Residential <- House_Mapping %>%
+ nrow()
+
+Tot_Geo_Act <- House_Mapping %>%
+  dplyr::filter(!is.na(geolocation_of_house_lat) & !is.na(geolocation_of_house_longi)) %>%
+ nrow()
+
+Tot_Geo_perc = round((Tot_Geo_Act * 100) / Tot_Residential)
+
+Tot_Geo_Comm_Act <- House_Mapping %>%
+  dplyr::filter(!is.na(comments)) %>%
+ nrow()
+
+Tot_Geo_Comm_perc = round((Tot_Geo_Comm_Act * 100) / Tot_Residential)
+
+Tot_No_Household <- House_Mapping %>%
+  dplyr::filter(!is.na(number_of_households_in_th))
+
+Tot_No_Household_Exp <- sum(unlist(Tot_No_Household[, 'number_of_households_in_th']))
+
+Tot_No_Household_Act <- Household_Q11_22 %>%
+  nrow()
+
+Tot_No_Household_perc = round((Tot_No_Household_Act * 100) / Tot_No_Household_Exp)
+
+Tot_About_household_Act <- About_the_household %>%
+  nrow()
+
+Tot_About_household_perc = round((Tot_About_household_Act * 100) / Tot_No_Household_Exp)
+
+Tot_No_tot_num_girl_women_cur_preg <- About_the_household %>%
+  dplyr::filter(!is.na(tot_num_girl_women_cur_preg) & tot_num_girl_women_cur_preg > 0)
+
+Tot_No_tot_num_girl_women_cur_preg_Exp <- sum(unlist(Tot_No_tot_num_girl_women_cur_preg[, 'tot_num_girl_women_cur_preg']))
+
+Pregnant_woman['Selection'] <- "No"
+
+for (i in 1:nrow(Pregnant_woman)) {
+  temp_record_id <- as.character(Pregnant_woman[i, "record_id"])
+  temp_About_the_household <- About_the_household %>%
+    dplyr::filter(record_id == temp_record_id)
+  if(nrow(temp_About_the_household) > 0){
+    for (j in 1:nrow(temp_About_the_household)) {
+      if(temp_About_the_household[j, "tot_num_girl_women_cur_preg"] > 0 & !is.na(temp_About_the_household[j, "tot_num_girl_women_cur_preg"])){
+        Pregnant_woman[i, "Selection"] <- "Yes"
+      }
+      }
+  }
+}
+
+Pregnant_woman <- Pregnant_woman %>%
+  dplyr::filter(Selection == "Yes")
+
+Tot_No_tot_num_girl_women_cur_preg_Act <- Pregnant_woman %>%
+  nrow()
+
+Tot_No_tot_num_girl_women_cur_preg_perc = round((Tot_No_tot_num_girl_women_cur_preg_Act * 100) / Tot_No_tot_num_girl_women_cur_preg_Exp)
+
+write_xlsx(Pregnant_woman, "Pregnant_woman.xlsx")
+
+Tot_No_tot_num_girl_women_cur_preg <- Tot_No_tot_num_girl_women_cur_preg %>%
+  add_column(about_household_2 = as.character(Tot_No_tot_num_girl_women_cur_preg$about_household)
+             , .after = "about_household")
+
+
+Tot_No_tot_num_girl_women_cur_preg_Joined <- 
+  left_join(Tot_No_tot_num_girl_women_cur_preg, Pregnant_woman, by = c('record_id'='record_id', 'about_household_2'='preg_woman_household_no'))
+
+Tot_No_tot_num_girl_women_cur_preg_Joined <- Tot_No_tot_num_girl_women_cur_preg_Joined %>%
+  group_by(record_id) %>%
+  dplyr::filter(row_number()==1) %>%
+  dplyr::filter(is.na(Selection))
+
+drop_columns <- c('about_household_2', 'tot_num_girl_women_cur_preg', 'tot_num_women_del', 'did_woman_die', 'was_woman_die_preg', 'tot_women_delivered_died', 'tot_women_baby_alive_not', 'tot_baby_alive_not', 'lose_baby_womb', 'tot_babies_lost_womb', 'Status.x', 'do_they_live_in_this_house', 'preg_woman_age', 'when_are_they_expected_to', 'do_they_expect_to_still_be', 'lga_name.y', 'mapping_id.y', 'data_entry_personnel.y', 'date_of_mapping.y', 'Enumerator.y', 'Status.y', 'Selection')
+Tot_No_tot_num_girl_women_cur_preg_Joined <- Tot_No_tot_num_girl_women_cur_preg_Joined %>%
+  select(-one_of(drop_columns))
+
+Tot_No_tot_num_girl_women_cur_preg_Joined <- 
+  left_join(Tot_No_tot_num_girl_women_cur_preg_Joined, Household_selecter, by = c('record_id'='record_id', 'about_household' = 'household_no'))
+
+write_xlsx(Tot_No_tot_num_girl_women_cur_preg_Joined, "Pregnant_woman_tracking.xlsx")
+
+when_are_they_expected_to_Act <- Pregnant_woman %>%
+  dplyr::filter(!is.na(when_are_they_expected_to)) %>%
+  nrow()
+
+when_are_they_expected_to_perc = round((when_are_they_expected_to_Act * 100) / Tot_No_tot_num_girl_women_cur_preg_Act)
+
+Tot_No_tot_women_delivered_died <- About_the_household %>%
+  dplyr::filter(!is.na(tot_women_delivered_died) & tot_women_delivered_died > 0 )
+
+Tot_No_tot_women_delivered_died_Exp <- sum(unlist(Tot_No_tot_women_delivered_died[, 'tot_women_delivered_died']))
+
+Maternal_death['Selection'] <- "No"
+
+for (i in 1:nrow(Maternal_death)) {
+  temp_record_id <- as.character(Maternal_death[i, "record_id"])
+  temp_About_the_household <- About_the_household %>%
+    dplyr::filter(record_id == temp_record_id)
+  if(nrow(temp_About_the_household) > 0){
+    for (j in 1:nrow(temp_About_the_household)) {
+      if(temp_About_the_household[j, "tot_women_delivered_died"] > 0 & !is.na(temp_About_the_household[j, "tot_women_delivered_died"])){
+        Maternal_death[i, "Selection"] <- "Yes"
+      }
+      }
+  }
+}
+
+Maternal_death <- Maternal_death %>%
+  dplyr::filter(Selection == "Yes")
+
+Tot_No_tot_women_delivered_died_Act <- Maternal_death %>%
+  nrow()
+
+Tot_No_tot_women_delivered_died_perc = round((Tot_No_tot_women_delivered_died_Act * 100) / Tot_No_tot_women_delivered_died_Exp)
+
+write_xlsx(Maternal_death, "Maternal_death.xlsx")
+
+Tot_No_tot_women_delivered_died <- Tot_No_tot_women_delivered_died %>%
+  add_column(about_household_2 = as.character(Tot_No_tot_women_delivered_died$about_household)
+             , .after = "about_household")
+
+Tot_No_tot_women_delivered_died_Joined <- 
+  left_join(Tot_No_tot_women_delivered_died, Maternal_death, by = c('record_id'='record_id', 'about_household_2'='maternal_death_household_no'))
+
+Tot_No_tot_women_delivered_died_Joined <- Tot_No_tot_women_delivered_died_Joined %>%
+  group_by(record_id) %>%
+  dplyr::filter(row_number()==1) %>%
+  dplyr::filter(is.na(Selection))
+
+# drop_columns <- c('about_household_2', 'tot_num_girl_women_cur_preg', 'tot_num_women_del', 'did_woman_die', 'was_woman_die_preg', 'tot_women_delivered_died', 'tot_women_baby_alive_not', 'tot_baby_alive_not', 'lose_baby_womb', 'tot_babies_lost_womb', 'Status.x', 'do_they_live_in_this_house', 'preg_woman_age', 'when_are_they_expected_to', 'do_they_expect_to_still_be', 'lga_name.y', 'mapping_id.y', 'data_entry_personnel.y', 'date_of_mapping.y', 'Enumerator.y', 'Status.y', 'Selection')
+# Tot_No_tot_num_girl_women_cur_preg_Joined <- Tot_No_tot_num_girl_women_cur_preg_Joined %>%
+#   select(-one_of(drop_columns))
+
+write_xlsx(Tot_No_tot_women_delivered_died_Joined, "Maternal_death_tracking.xlsx")
+
+date_the_death_happened_Act <- Maternal_death %>%
+  dplyr::filter(!is.na(date_the_death_happened)) %>%
+  nrow()
+
+date_the_death_happened_perc = round((date_the_death_happened_Act * 100) / Tot_No_tot_women_delivered_died_Act)
+
+Tot_No_tot_babies_lost_womb <- About_the_household %>%
+  dplyr::filter(!is.na(tot_babies_lost_womb) & tot_babies_lost_womb > 0)
+
+Tot_No_tot_babies_lost_womb_Exp <- sum(unlist(Tot_No_tot_babies_lost_womb[, 'tot_babies_lost_womb']))
+
+Stillbirth['Selection'] <- "No"
+
+for (i in 1:nrow(Stillbirth)) {
+  temp_record_id <- as.character(Stillbirth[i, "record_id"])
+  temp_About_the_household <- About_the_household %>%
+    dplyr::filter(record_id == temp_record_id)
+  if(nrow(temp_About_the_household) > 0){
+    for (j in 1:nrow(temp_About_the_household)) {
+      if(temp_About_the_household[j, "tot_babies_lost_womb"] > 0 & !is.na(temp_About_the_household[j, "tot_babies_lost_womb"])){
+        Stillbirth[i, "Selection"] <- "Yes"
+      }
+    }
+  }
+}
+
+Stillbirth <- Stillbirth %>%
+  dplyr::filter(Selection == "Yes")
+
+Tot_No_tot_babies_lost_womb_Act <- Stillbirth %>%
+  nrow()
+
+Tot_No_tot_babies_lost_womb_perc = round((Tot_No_tot_babies_lost_womb_Act * 100) / Tot_No_tot_babies_lost_womb_Exp)
+
+write_xlsx(Stillbirth, "Stillbirth.xlsx")
+
+# Tot_No_tot_babies_lost_womb <- Tot_No_tot_babies_lost_womb %>%
+#   add_column(about_household_2 = as.character(Tot_No_tot_babies_lost_womb$about_household)
+#              , .after = "about_household")
+
+Tot_No_tot_babies_lost_womb_Joined <- 
+  left_join(Tot_No_tot_babies_lost_womb, Stillbirth, by = c('record_id'='record_id', 'about_household'='stillbirth_household_number'))
+
+Tot_No_tot_babies_lost_womb_Joined <- Tot_No_tot_babies_lost_womb_Joined %>%
+  group_by(record_id) %>%
+  dplyr::filter(row_number()==1) %>%
+  dplyr::filter(is.na(Selection))
+
+# drop_columns <- c('about_household_2', 'tot_num_girl_women_cur_preg', 'tot_num_women_del', 'did_woman_die', 'was_woman_die_preg', 'tot_women_delivered_died', 'tot_women_baby_alive_not', 'tot_baby_alive_not', 'lose_baby_womb', 'tot_babies_lost_womb', 'Status.x', 'do_they_live_in_this_house', 'preg_woman_age', 'when_are_they_expected_to', 'do_they_expect_to_still_be', 'lga_name.y', 'mapping_id.y', 'data_entry_personnel.y', 'date_of_mapping.y', 'Enumerator.y', 'Status.y', 'Selection')
+# Tot_No_tot_num_girl_women_cur_preg_Joined <- Tot_No_tot_num_girl_women_cur_preg_Joined %>%
+#   select(-one_of(drop_columns))
+
+write_xlsx(Tot_No_tot_babies_lost_womb_Joined, "Stillbirth_tracking.xlsx")
+
+date_the_death_happened_baby_Act <- Stillbirth %>%
+  dplyr::filter(!is.na(date_the_death_happened_baby)) %>%
+  nrow()
+
+date_the_death_happened_baby_perc = round((date_the_death_happened_baby_Act * 100) / Tot_No_tot_babies_lost_womb_Act)
+
+Tot_No_tot_women_delivered_died
+Tot_No_tot_babies_lost_womb
+Tot_No_tot_num_girl_women_cur_preg
+
+# Key Data Statistics
+df_table <- data.frame(`Data Items` = c("Total number of building", "Geolocation", "Total No. of households", "About the household", "Pregnant women", "Maternal death", "Stillbirth", "Dates entered for exp. delivery", "Dates entered for maternal death", "Dates entered for stillbirth"),
+                                 `Expected No` = c("", Tot_Residential, "", Tot_No_Household_Exp, Tot_No_tot_num_girl_women_cur_preg_Exp, Tot_No_tot_women_delivered_died_Exp, Tot_No_tot_babies_lost_womb_Exp, Tot_No_tot_num_girl_women_cur_preg_Act, Tot_No_tot_women_delivered_died_Act, Tot_No_tot_babies_lost_womb_Act),
+                                 `Actual No` = c(Tot_Residential, Tot_Geo_Act, Tot_No_Household_Exp, Tot_About_household_Act,  Tot_No_tot_num_girl_women_cur_preg_Act, Tot_No_tot_women_delivered_died_Act, Tot_No_tot_babies_lost_womb_Act, when_are_they_expected_to_Act, date_the_death_happened_Act, date_the_death_happened_baby_Act),
+                                 `Percentage` = c("", Tot_Geo_perc, "", Tot_About_household_perc, Tot_No_tot_num_girl_women_cur_preg_perc, Tot_No_tot_women_delivered_died_perc, Tot_No_tot_babies_lost_womb_perc, when_are_they_expected_to_perc, date_the_death_happened_perc, date_the_death_happened_baby_perc))
+
+ft <- flextable(df_table)
+ft <- set_header_labels(ft,
+                        Data.Items = "Data Items",
+                        Expected.No = "Expected No.",
+                        Actual.No = "Actual No.",
+                        Percentage = "Percentage")
+ft <- theme_vanilla(ft)
+ft <- set_table_properties(ft, layout = "autofit")
+ft <- set_caption(ft, caption = "Other Key Data Statistics Completeness")
+ft
+```
+
+\newpage
+```{r ck_4, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
+
+Tot_About_tab2 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ibeju-Lekki") %>%
+  nrow()
+  
+Tot_About_tab3 <- About_the_household %>%
+  dplyr::filter(lga_name == "Alimosho") %>%
+  nrow()
+  
+Tot_About_tab4 <- About_the_household %>%
+  dplyr::filter(lga_name == "Badagry") %>%
+  nrow()
+  
+Tot_About_tab5 <- About_the_household %>%
+  dplyr::filter(lga_name == "Somolu") %>%
+  nrow()
+  
+Tot_About_tab6 <- About_the_household %>%
+  dplyr::filter(lga_name == "Lagos Mainland") %>%
+  nrow()
+  
+Tot_About_tab7 <- About_the_household %>%
+  dplyr::filter(lga_name == "Agege") %>%
+  nrow()
+
+Tot_About_tab8 <- About_the_household %>%
+  dplyr::filter(lga_name == "Surulere") %>%
+  nrow()
+  
+Tot_About_tab9 <- About_the_household %>%
+  dplyr::filter(lga_name == "Oshodi-Isolo") %>%
+  nrow()
+  
+Tot_About_tab10 <- About_the_household %>%
+  dplyr::filter(lga_name == "Lagos Island") %>%
+  nrow()
+  
+Tot_About_tab12 <- About_the_household %>%
+  dplyr::filter(lga_name == "Mushin") %>%
+  nrow()
+  
+Tot_About_tab13 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ajeromi") %>%
+  nrow()
+
+Tot_About_tab14 <- About_the_household %>%
+  dplyr::filter(lga_name == "Kosofe") %>%
+  nrow()
+  
+Tot_About_tab15 <- About_the_household %>%
+  dplyr::filter(lga_name == "Amuwo odofin") %>%
+  nrow()
+  
+Tot_About_tab16 <- About_the_household %>%
+  dplyr::filter(lga_name == "Epe") %>%
+  nrow()
+
+Tot_About_tab17 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ikeja") %>%
+  nrow()
+  
+Tot_About_tab18 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ikorodu") %>%
+  nrow()
+  
+Tot_About_tab19 <- About_the_household %>%
+  dplyr::filter(lga_name == "Apapa") %>%
+  nrow()
+  
+Tot_About_tab20 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ojo") %>%
+  nrow()
+
+Tot_About_tab21 <- About_the_household %>%
+  dplyr::filter(lga_name == "Eti-Osa") %>%
+  nrow()
+
+Tot_About_tab54 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ifako-Ijaiye") %>%
+  nrow()
+  
+Tot_About_tab <- Tot_About_tab2 + Tot_About_tab3 + Tot_About_tab4 + Tot_About_tab5 + Tot_About_tab6 + Tot_About_tab7 + Tot_About_tab8 + Tot_About_tab9 + Tot_About_tab10 + Tot_About_tab12 + Tot_About_tab13 + Tot_About_tab14 + Tot_About_tab15 + Tot_About_tab16 + Tot_About_tab17 + Tot_About_tab18 + Tot_About_tab19 + Tot_About_tab20 + Tot_About_tab21 + Tot_About_tab54
+
+# About household
+df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Somolu", "Lagos Mainland", "Agege", "Surulere", "Oshodi-Isolo", "Lagos Island", "Mushin", "Ajeromi", "Kosofe", "Amuwo odofin", "Epe", "Ikeja", "Ikorodu", "Apapa", "Ojo", "Eti-Osa", "Ifako-Ijaiye", "Grand Total"),
+                                 `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
+Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
+
+ft <- flextable(df_table)
+ft <- set_header_labels(ft,
+                        Data.Tab = "LGA",
+                        Total.Number = "Total Number")
+ft <- theme_vanilla(ft)
+ft <- set_table_properties(ft, layout = "autofit")
+ft <- set_caption(ft, caption = "Household done per LGA")
+ft
+```
+
+\newpage
+```{r ck_5, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
+
+About_the_household <- About_the_household %>%
+  add_column(`Mapping Day` = 
+               case_when(
+                 (About_the_household$date_of_mapping == "2024-03-05" | About_the_household$date_of_mapping == "3/5/2024 1" | About_the_household$date_of_mapping == "05/03/2024")  ~ 1
+                 ,(About_the_household$date_of_mapping == "2024-03-06" | About_the_household$date_of_mapping == "3/6/2024 1")  ~ 2
+                 ,(About_the_household$date_of_mapping == "2024-03-07")  ~ 3
+                 ,(About_the_household$date_of_mapping == "2024-03-08")  ~ 4
+                 ,(About_the_household$date_of_mapping == "2024-03-09")  ~ 5
+                 ,(About_the_household$date_of_mapping == "2024-03-10")  ~ 6
+                 ,(About_the_household$date_of_mapping == "2024-03-11")  ~ 7
+                 ,(About_the_household$date_of_mapping == "2024-03-12")  ~ 8
+                 ,(About_the_household$date_of_mapping == "2024-03-13")  ~ 9
+                 ,(About_the_household$date_of_mapping == "2024-03-14")  ~ 10
+                 ,(About_the_household$date_of_mapping == "2024-03-15")  ~ 11
+                 ,(About_the_household$date_of_mapping == "2024-03-16")  ~ 12
+                 ,(About_the_household$date_of_mapping == "2024-03-17")  ~ 13
+                 ,(About_the_household$date_of_mapping == "2024-03-18")  ~ 14
+                 ,(About_the_household$date_of_mapping == "2024-03-19")  ~ 15)
+             , .after = "date_of_mapping")
+
+trend_df = data.frame()
+#
+# # Defining a for loop with 30 iterations
+
+for (i in 1:15) {
+  output = list(i)
+
+  # Using rbind() to append the output of one iteration to the dataframe
+  trend_df = rbind(trend_df, output)
+}
+
+trend_df['i_actual'] <- NA
+
+for (i in 1:max(About_the_household$`Mapping Day`)) {
+  trend_df[i, "i_actual"] <- About_the_household %>%
+    dplyr::filter(`Mapping Day` == i) %>%
+    nrow()
+}
+
+trend_df['i_max_sofar'] <- NA
+
+for (i in 1:max(About_the_household$`Mapping Day`)) {
+  trend_df[i, "i_max_sofar"] <- About_the_household %>%
+    dplyr::filter(`Mapping Day` <= i) %>%
+    nrow()
+}
+
+# naming the columns
+colnames(trend_df)<-c("Mapping Day", "Daily Mapping (actual)", "Cumulative Mapping (actual)")
+
+trend_df['Cumulative Mapping (expected)'] <- NA
+
+for (i in 1:15) {
+  trend_df[i, "Cumulative Mapping (expected)"] <- trunc(i * 1067)
+}
+
+# IVON Month of Recruitment
+trend_df <- trend_df %>%
+  add_column(`Day` =
+               case_when(
+                 (as.numeric(trend_df$`Mapping Day`) == 1)  ~ "Day 1"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 2)  ~ "Day 2"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 3)  ~ "Day 3"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 4)  ~ "Day 4"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 5)  ~ "Day 5"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 6)  ~ "Day 6"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 7)  ~ "Day 7"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 8)  ~ "Day 8"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 9)  ~ "Day 9"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 10)  ~ "Day 10"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 11)  ~ "Day 11"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 12)  ~ "Day 12"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 13)  ~ "Day 13"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 14)  ~ "Day 14"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 15)  ~ "Day 15")
+             , .after = "Mapping Day")
+
+trend_df['Daily Mapping (expected)'] <- 1067
+
+trend_df <- trend_df %>%
+  move_columns(`Daily Mapping (expected)`, .after = "Day") %>%
+  move_columns(`Cumulative Mapping (expected)`, .after = "Daily Mapping (actual)")
+
+ft <- flextable(trend_df)
+# ft <- set_header_labels(ft,
+#                         Data.Tab = "Data Tab",
+#                         Total.Number = "Total Number")
+# ft <- theme_vanilla(ft)
+# ft <- set_table_properties(ft, layout = "autofit")
+ft <- set_caption(ft, caption = "Daily Expected vs. Actual Household")
+ft
+
+# v2 - create line plot with trend of target vs actual and custom aesthetics
+colors <- c("Expected" = "blue", "Actual" = "red")
+
+ggplot(trend_df, aes(x = `Mapping Day`)) +
+  geom_line(aes(y = `Cumulative Mapping (expected)`, color = "Expected"), linewidth = 1.5) +
+  geom_line(aes(y = `Cumulative Mapping (actual)`, color = "Actual"), linewidth = 1.5) +
+  labs(x = "Mapping day",
+       y = "No. of household",
+       color = "Legend",
+       title = "Household Trend - Expected vs Actual") +
+  scale_x_continuous(breaks= seq(1, 15, by=1)) +
+  scale_y_continuous(breaks= seq(700, 22400, by=700))
+
+```
+
+\newpage
+```{r ck_6_a, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
+
+Tot_About_tab2 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ibeju-Lekki") %>%
+  nrow()
+  
+Tot_About_tab3 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Alimosho") %>%
+  nrow()
+  
+Tot_About_tab4 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Badagry") %>%
+  nrow()
+  
+Tot_About_tab5 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Somolu") %>%
+  nrow()
+  
+Tot_About_tab6 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Lagos Mainland") %>%
+  nrow()
+  
+Tot_About_tab7 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Agege") %>%
+  nrow()
+
+Tot_About_tab8 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Surulere") %>%
+  nrow()
+  
+Tot_About_tab9 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Oshodi-Isolo") %>%
+  nrow()
+  
+Tot_About_tab10 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Lagos Island") %>%
+  nrow()
+  
+Tot_About_tab12 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Mushin") %>%
+  nrow()
+  
+Tot_About_tab13 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ajeromi") %>%
+  nrow()
+
+Tot_About_tab14 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Kosofe") %>%
+  nrow()
+  
+Tot_About_tab15 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Amuwo odofin") %>%
+  nrow()
+  
+Tot_About_tab16 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Epe") %>%
+  nrow()
+
+Tot_About_tab17 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ikeja") %>%
+  nrow()
+  
+Tot_About_tab18 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ikorodu") %>%
+  nrow()
+  
+Tot_About_tab19 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Apapa") %>%
+  nrow()
+  
+Tot_About_tab20 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ojo") %>%
+  nrow()
+
+Tot_About_tab21 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Eti-Osa") %>%
+  nrow()
+
+Tot_About_tab54 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ifako-Ijaiye") %>%
+  nrow()
+  
+Tot_About_tab <- Tot_About_tab2 + Tot_About_tab3 + Tot_About_tab4 + Tot_About_tab5 + Tot_About_tab6 + Tot_About_tab7 + Tot_About_tab8 + Tot_About_tab9 + Tot_About_tab10 + Tot_About_tab12 + Tot_About_tab13 + Tot_About_tab14 + Tot_About_tab15 + Tot_About_tab16 + Tot_About_tab17 + Tot_About_tab18 + Tot_About_tab19 + Tot_About_tab20 + Tot_About_tab21 + Tot_About_tab54
+
+# About household
+df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Somolu", "Lagos Mainland", "Agege", "Surulere", "Oshodi-Isolo", "Lagos Island", "Mushin", "Ajeromi", "Kosofe", "Amuwo odofin", "Epe", "Ikeja", "Ikorodu", "Apapa", "Ojo", "Eti-Osa", "Ifako-Ijaiye", "Grand Total"),
+                                 `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
+Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
+
+ft <- flextable(df_table)
+ft <- set_header_labels(ft,
+                        Data.Tab = "LGA",
+                        Total.Number = "Total Number")
+ft <- theme_vanilla(ft)
+ft <- set_table_properties(ft, layout = "autofit")
+ft <- set_caption(ft, caption = "Expected delivery per LGA")
+ft
+```
+
+\newpage
+```{r ck_6, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
+
+Tot_About_tab2 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ibeju-Lekki" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab3 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Alimosho" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab4 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Badagry" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab5 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Somolu" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab6 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Lagos Mainland" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab7 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Agege" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+
+Tot_About_tab8 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Surulere" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab9 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Oshodi-Isolo" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab10 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Lagos Island" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab12 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Mushin" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab13 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ajeromi" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+
+Tot_About_tab14 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Kosofe" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab15 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Amuwo odofin" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab16 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Epe" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+
+Tot_About_tab17 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ikeja" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab18 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ikorodu" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab19 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Apapa" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab20 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ojo" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+
+Tot_About_tab21 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Eti-Osa" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+
+Tot_About_tab54 <- Pregnant_woman %>%
+  dplyr::filter(lga_name == "Ifako-Ijaiye" & is.na(when_are_they_expected_to)) %>%
+  nrow()
+  
+Tot_About_tab <- Tot_About_tab2 + Tot_About_tab3 + Tot_About_tab4 + Tot_About_tab5 + Tot_About_tab6 + Tot_About_tab7 + Tot_About_tab8 + Tot_About_tab9 + Tot_About_tab10 + Tot_About_tab12 + Tot_About_tab13 + Tot_About_tab14 + Tot_About_tab15 + Tot_About_tab16 + Tot_About_tab17 + Tot_About_tab18 + Tot_About_tab19 + Tot_About_tab20 + Tot_About_tab21 + Tot_About_tab54
+
+# About household
+df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Somolu", "Lagos Mainland", "Agege", "Surulere", "Oshodi-Isolo", "Lagos Island", "Mushin", "Ajeromi", "Kosofe", "Amuwo odofin", "Epe", "Ikeja", "Ikorodu", "Apapa", "Ojo", "Eti-Osa", "Ifako-Ijaiye", "Grand Total"),
+                                 `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
+Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
+
+ft <- flextable(df_table)
+ft <- set_header_labels(ft,
+                        Data.Tab = "LGA",
+                        Total.Number = "Total Number")
+ft <- theme_vanilla(ft)
+ft <- set_table_properties(ft, layout = "autofit")
+ft <- set_caption(ft, caption = "Missing expected delivery dates per LGA")
+ft
+```
+
+\newpage
+```{r ck_7_a, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
+Tot_About_tab2 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ibeju-Lekki") %>%
+  nrow()
+  
+Tot_About_tab3 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Alimosho") %>%
+  nrow()
+  
+Tot_About_tab4 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Badagry") %>%
+  nrow()
+  
+Tot_About_tab5 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Somolu") %>%
+  nrow()
+  
+Tot_About_tab6 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Lagos Mainland") %>%
+  nrow()
+  
+Tot_About_tab7 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Agege") %>%
+  nrow()
+
+Tot_About_tab8 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Surulere") %>%
+  nrow()
+  
+Tot_About_tab9 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Oshodi-Isolo") %>%
+  nrow()
+  
+Tot_About_tab10 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Lagos Island") %>%
+  nrow()
+  
+Tot_About_tab12 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Mushin") %>%
+  nrow()
+  
+Tot_About_tab13 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ajeromi") %>%
+  nrow()
+
+Tot_About_tab14 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Kosofe") %>%
+  nrow()
+  
+Tot_About_tab15 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Amuwo odofin") %>%
+  nrow()
+  
+Tot_About_tab16 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Epe") %>%
+  nrow()
+
+Tot_About_tab17 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ikeja") %>%
+  nrow()
+  
+Tot_About_tab18 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ikorodu") %>%
+  nrow()
+  
+Tot_About_tab19 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Apapa") %>%
+  nrow()
+  
+Tot_About_tab20 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ojo") %>%
+  nrow()
+
+Tot_About_tab21 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Eti-Osa") %>%
+  nrow()
+
+Tot_About_tab54 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ifako-Ijaiye") %>%
+  nrow()
+
+Tot_About_tab <- Tot_About_tab2 + Tot_About_tab3 + Tot_About_tab4 + Tot_About_tab5 + Tot_About_tab6 + Tot_About_tab7 + Tot_About_tab8 + Tot_About_tab9 + Tot_About_tab10 + Tot_About_tab12 + Tot_About_tab13 + Tot_About_tab14 + Tot_About_tab15 + Tot_About_tab16 + Tot_About_tab17 + Tot_About_tab18 + Tot_About_tab19 + Tot_About_tab20 + Tot_About_tab21 + Tot_About_tab54
+
+# About household
+df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Somolu", "Lagos Mainland", "Agege", "Surulere", "Oshodi-Isolo", "Lagos Island", "Mushin", "Ajeromi", "Kosofe", "Amuwo odofin", "Epe", "Ikeja", "Ikorodu", "Apapa", "Ojo", "Eti-Osa", "Ifako-Ijaiye", "Grand Total"),
+                                 `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
+Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
+
+ft <- flextable(df_table)
+ft <- set_header_labels(ft,
+                        Data.Tab = "LGA",
+                        Total.Number = "Total Number")
+ft <- theme_vanilla(ft)
+ft <- set_table_properties(ft, layout = "autofit")
+ft <- set_caption(ft, caption = "Maternal death per LGA")
+ft
+```
+
+\newpage
+```{r ck_7, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
+Tot_About_tab2 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ibeju-Lekki" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab3 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Alimosho" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab4 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Badagry" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab5 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Somolu" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab6 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Lagos Mainland" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab7 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Agege" & is.na(date_the_death_happened)) %>%
+  nrow()
+
+Tot_About_tab8 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Surulere" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab9 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Oshodi-Isolo" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab10 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Lagos Island" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab12 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Mushin" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab13 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ajeromi" & is.na(date_the_death_happened)) %>%
+  nrow()
+
+Tot_About_tab14 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Kosofe" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab15 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Amuwo odofin" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab16 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Epe" & is.na(date_the_death_happened)) %>%
+  nrow()
+
+Tot_About_tab17 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ikeja" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab18 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ikorodu" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab19 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Apapa" & is.na(date_the_death_happened)) %>%
+  nrow()
+  
+Tot_About_tab20 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ojo" & is.na(date_the_death_happened)) %>%
+  nrow()
+
+Tot_About_tab21 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Eti-Osa" & is.na(date_the_death_happened)) %>%
+  nrow()
+
+Tot_About_tab54 <- Maternal_death %>%
+  dplyr::filter(lga_name == "Ifako-Ijaiye" & is.na(date_the_death_happened)) %>%
+  nrow()
+
+Tot_About_tab <- Tot_About_tab2 + Tot_About_tab3 + Tot_About_tab4 + Tot_About_tab5 + Tot_About_tab6 + Tot_About_tab7 + Tot_About_tab8 + Tot_About_tab9 + Tot_About_tab10 + Tot_About_tab12 + Tot_About_tab13 + Tot_About_tab14 + Tot_About_tab15 + Tot_About_tab16 + Tot_About_tab17 + Tot_About_tab18 + Tot_About_tab19 + Tot_About_tab20 + Tot_About_tab21 + Tot_About_tab54
+
+# About household
+df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Somolu", "Lagos Mainland", "Agege", "Surulere", "Oshodi-Isolo", "Lagos Island", "Mushin", "Ajeromi", "Kosofe", "Amuwo odofin", "Epe", "Ikeja", "Ikorodu", "Apapa", "Ojo", "Eti-Osa", "Ifako-Ijaiye", "Grand Total"),
+                                 `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
+Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
+
+ft <- flextable(df_table)
+ft <- set_header_labels(ft,
+                        Data.Tab = "LGA",
+                        Total.Number = "Total Number")
+ft <- theme_vanilla(ft)
+ft <- set_table_properties(ft, layout = "autofit")
+ft <- set_caption(ft, caption = "Missing maternal death dates per LGA")
+ft
+```
+
+\newpage
+```{r ck_8_a, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
+
+Tot_About_tab2 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ibeju-Lekki") %>%
+  nrow()
+  
+Tot_About_tab3 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Alimosho") %>%
+  nrow()
+  
+Tot_About_tab4 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Badagry") %>%
+  nrow()
+  
+Tot_About_tab5 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Somolu") %>%
+  nrow()
+  
+Tot_About_tab6 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Lagos Mainland") %>%
+  nrow()
+  
+Tot_About_tab7 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Agege") %>%
+  nrow()
+
+Tot_About_tab8 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Surulere") %>%
+  nrow()
+  
+Tot_About_tab9 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Oshodi-Isolo") %>%
+  nrow()
+  
+Tot_About_tab10 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Lagos Island") %>%
+  nrow()
+  
+Tot_About_tab12 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Mushin") %>%
+  nrow()
+  
+Tot_About_tab13 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ajeromi") %>%
+  nrow()
+
+Tot_About_tab14 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Kosofe") %>%
+  nrow()
+  
+Tot_About_tab15 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Amuwo odofin") %>%
+  nrow()
+  
+Tot_About_tab16 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Epe") %>%
+  nrow()
+
+Tot_About_tab17 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ikeja") %>%
+  nrow()
+  
+Tot_About_tab18 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ikorodu") %>%
+  nrow()
+  
+Tot_About_tab19 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Apapa") %>%
+  nrow()
+  
+Tot_About_tab20 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ojo") %>%
+  nrow()
+
+Tot_About_tab21 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Eti-Osa") %>%
+  nrow()
+
+Tot_About_tab54 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ifako-Ijaiye") %>%
+  nrow()
+
+Tot_About_tab <- Tot_About_tab2 + Tot_About_tab3 + Tot_About_tab4 + Tot_About_tab5 + Tot_About_tab6 + Tot_About_tab7 + Tot_About_tab8 + Tot_About_tab9 + Tot_About_tab10 + Tot_About_tab12 + Tot_About_tab13 + Tot_About_tab14 + Tot_About_tab15 + Tot_About_tab16 + Tot_About_tab17 + Tot_About_tab18 + Tot_About_tab19 + Tot_About_tab20 + Tot_About_tab21 + Tot_About_tab54
+
+# About household
+df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Somolu", "Lagos Mainland", "Agege", "Surulere", "Oshodi-Isolo", "Lagos Island", "Mushin", "Ajeromi", "Kosofe", "Amuwo odofin", "Epe", "Ikeja", "Ikorodu", "Apapa", "Ojo", "Eti-Osa", "Ifako-Ijaiye", "Grand Total"),
+                                 `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
+Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
+
+ft <- flextable(df_table)
+ft <- set_header_labels(ft,
+                        Data.Tab = "LGA",
+                        Total.Number = "Total Number")
+ft <- theme_vanilla(ft)
+ft <- set_table_properties(ft, layout = "autofit")
+ft <- set_caption(ft, caption = "Stillbirth per LGA")
+ft
+```
+
+\newpage
+```{r ck_8, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
+Tot_About_tab2 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ibeju-Lekki" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab3 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Alimosho" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab4 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Badagry" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab5 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Somolu" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab6 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Lagos Mainland" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab7 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Agege" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+
+Tot_About_tab8 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Surulere" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab9 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Oshodi-Isolo" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab10 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Lagos Island" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab12 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Mushin" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab13 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ajeromi" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+
+Tot_About_tab14 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Kosofe" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab15 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Amuwo odofin" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab16 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Epe" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+
+Tot_About_tab17 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ikeja" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab18 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ikorodu" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab19 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Apapa" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+  
+Tot_About_tab20 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ojo" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+
+Tot_About_tab21 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Eti-Osa" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+
+Tot_About_tab54 <- Stillbirth %>%
+  dplyr::filter(lga_name == "Ifako-Ijaiye" & is.na(date_the_death_happened_baby)) %>%
+  nrow()
+
+Tot_About_tab <- Tot_About_tab2 + Tot_About_tab3 + Tot_About_tab4 + Tot_About_tab5 + Tot_About_tab6 + Tot_About_tab7 + Tot_About_tab8 + Tot_About_tab9 + Tot_About_tab10 + Tot_About_tab12 + Tot_About_tab13 + Tot_About_tab14 + Tot_About_tab15 + Tot_About_tab16 + Tot_About_tab17 + Tot_About_tab18 + Tot_About_tab19 + Tot_About_tab20 + Tot_About_tab21 + Tot_About_tab54
+
+# About household
+df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Somolu", "Lagos Mainland", "Agege", "Surulere", "Oshodi-Isolo", "Lagos Island", "Mushin", "Ajeromi", "Kosofe", "Amuwo odofin", "Epe", "Ikeja", "Ikorodu", "Apapa", "Ojo", "Eti-Osa", "Ifako-Ijaiye", "Grand Total"),
+                                 `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
+Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
+
+ft <- flextable(df_table)
+ft <- set_header_labels(ft,
+                        Data.Tab = "LGA",
+                        Total.Number = "Total Number")
+ft <- theme_vanilla(ft)
+ft <- set_table_properties(ft, layout = "autofit")
+ft <- set_caption(ft, caption = "Missing stillbirth dates per LGA")
+ft
+```

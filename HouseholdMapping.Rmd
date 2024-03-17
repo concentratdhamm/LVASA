@@ -128,8 +128,16 @@ data_personel <- data_personel %>%
 House_Mapping <- House_Mapping %>%
   left_join(data_personel, by = 'lga_name')
 
-House_Mapping <- House_Mapping %>%
+# House_Mapping <- House_Mapping %>%
+#   dplyr::filter(data_entry_personnel.x == data_entry_personnel.y)
+
+House_Mapping_1 <- House_Mapping %>%
   dplyr::filter(data_entry_personnel.x == data_entry_personnel.y)
+
+House_Mapping_2 <- House_Mapping %>%
+  dplyr::filter(date_of_mapping == "2024-03-16")
+
+House_Mapping <- rbind(House_Mapping_1, House_Mapping_2)
 
 drop_columns <- c('data_entry_personnel.y')
 House_Mapping <- House_Mapping %>%

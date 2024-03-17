@@ -1,0 +1,27 @@
+```{r ck_1, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE, comment=NA}
+library(ggplot2)
+library(gtsummary)
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(writexl)
+library(sjmisc)
+library(flextable)
+library(data.table)
+library(plotly)
+library(readr)
+library(stringr)
+
+Pregnant_woman_printer <- read_xlsx("Pregnant_woman_tracking.xlsx", guess_max = 20000)
+
+Pregnant_woman_printer <- Pregnant_woman_printer %>%
+  dplyr::select(record_id, about_household, lga_name.x, name_of_household_head, household_head_phone_number, alternative_phone_number, preferred_day_to_call, preferred_time_to_call) %>%
+  dplyr::arrange(lga_name.x)
+
+for (i in 1:nrow(Pregnant_woman_printer)) {
+  print(Pregnant_woman_printer[i, 1])
+}
+
+# "Record ID: ", Pregnant_woman_printer[i,"record_id], "\n", "Household No: ", Pregnant_woman_printer[i,"about_household"], "\n", "LGA: ", Pregnant_woman_printer[i,"lga_name.x"], "\n", "Name of Household Head: ", "\n", Pregnant_woman_printer[i,"name_of_household_head"], "\n", "Household head phone number ", Pregnant_woman_printer[i,"household_head_phone_number"]
+
+```

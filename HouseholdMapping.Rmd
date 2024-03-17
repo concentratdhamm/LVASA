@@ -170,7 +170,7 @@ Household_Q11_22 <- Household_Q11_22 %>%
   dplyr::filter(redcap_repeat_instrument == "Household - Q11-22")
 
 House_Mapping_Joiner <- House_Mapping %>%
-  dplyr::select(record_id, lga_name, mapping_id, data_entry_personnel, date_of_mapping, Enumerator, Status)
+  dplyr::select(record_id, lga_name, `Settlement Locality`, enumeration_code, address, description_to_aid_house, mapping_id, data_entry_personnel, date_of_mapping, Enumerator, Status)
 
 Household_Q11_22 <- rename(Household_Q11_22, household_no = redcap_repeat_instance)
 

@@ -51,10 +51,20 @@ House_Mapping <-
     raw_or_label = "label"
   )$data
 
+House_Mapping_raw <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 48,
+    raw_or_label = "raw"
+  )$data
+
+write_xlsx(House_Mapping_raw, "Raw_Household.xlsx")
+
 House_Mapping <- House_Mapping %>%
   add_column(`Settlement Locality` = 
                case_when(
-                 (House_Mapping$lga_name == "Alimosho")  ~ House_Mapping$settlement_locality_1
+                 (House_Mapping$lga_name == "Agege")  ~ House_Mapping$settlement_locality_1
                  ,(House_Mapping$lga_name == "Ajeromi")  ~ House_Mapping$settlement_locality_2
                  ,(House_Mapping$lga_name == "Alimosho")  ~ House_Mapping$settlement_locality_3
                  ,(House_Mapping$lga_name == "Amuwo odofin")  ~ House_Mapping$settlement_locality_4
@@ -647,7 +657,7 @@ trend_df = data.frame()
 #
 # # Defining a for loop with 30 iterations
 
-for (i in 1:15) {
+for (i in 1:18) {
   output = list(i)
 
   # Using rbind() to append the output of one iteration to the dataframe
@@ -675,8 +685,8 @@ colnames(trend_df)<-c("Mapping Day", "Daily Mapping (actual)", "Cumulative Mappi
 
 trend_df['Cumulative Mapping (expected)'] <- NA
 
-for (i in 1:15) {
-  trend_df[i, "Cumulative Mapping (expected)"] <- trunc(i * 1067)
+for (i in 1:18) {
+  trend_df[i, "Cumulative Mapping (expected)"] <- trunc(i * 1164)
 }
 
 # IVON Month of Recruitment
@@ -697,10 +707,13 @@ trend_df <- trend_df %>%
                  ,(as.numeric(trend_df$`Mapping Day`) == 12)  ~ "Day 12"
                  ,(as.numeric(trend_df$`Mapping Day`) == 13)  ~ "Day 13"
                  ,(as.numeric(trend_df$`Mapping Day`) == 14)  ~ "Day 14"
-                 ,(as.numeric(trend_df$`Mapping Day`) == 15)  ~ "Day 15")
+                 ,(as.numeric(trend_df$`Mapping Day`) == 15)  ~ "Day 15"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 16)  ~ "Day 16"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 17)  ~ "Day 17"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 18)  ~ "Day 18")
              , .after = "Mapping Day")
 
-trend_df['Daily Mapping (expected)'] <- 1067
+trend_df['Daily Mapping (expected)'] <- 1164
 
 trend_df <- trend_df %>%
   move_columns(`Daily Mapping (expected)`, .after = "Day") %>%
@@ -725,8 +738,8 @@ ggplot(trend_df, aes(x = `Mapping Day`)) +
        y = "No. of household",
        color = "Legend",
        title = "Household Trend - Expected vs Actual") +
-  scale_x_continuous(breaks= seq(1, 15, by=1)) +
-  scale_y_continuous(breaks= seq(700, 22400, by=700))
+  scale_x_continuous(breaks= seq(1, 18, by=1)) +
+  scale_y_continuous(breaks= seq(700, 20960, by=700))
 
 ```
 

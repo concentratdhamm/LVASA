@@ -238,8 +238,6 @@ drop_columns <- c('redcap_event_name')
 About_the_household <- About_the_household %>%
   select(-one_of(drop_columns))
 
-write_xlsx(About_the_household, "About_the_household.xlsx")
-
 drop_columns <- c('redcap_repeat_instance')
 #pregnant_woman
 Pregnant_woman <-
@@ -617,18 +615,27 @@ Tot_About_tab <- Tot_About_tab2 + Tot_About_tab3 + Tot_About_tab4 + Tot_About_ta
 
 # About household
 df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Somolu", "Lagos Mainland", "Agege", "Surulere", "Oshodi-Isolo", "Lagos Island", "Mushin", "Ajeromi", "Kosofe", "Amuwo odofin", "Epe", "Ikeja", "Ikorodu", "Apapa", "Ojo", "Eti-Osa", "Ifako-Ijaiye", "Grand Total"),
+                       `EAs` = c("10", "33", "9", "8", "17", "19", "10", "10", "7", "10", "15", "10", "21", "10", "8", "14", "17", "10", "10", "14", "262"),
+                      `Households Expected` = c(800, 2640, 720, 640, 1360, 1520, 800, 800, 560, 800, 1200, 800, 1680, 800, 640, 1120, 1360, 800, 800, 1120, 20960),
                                  `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
-Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
+Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab),
+`Household Balance` = c((800 - Tot_About_tab2), (2640 - Tot_About_tab3), (720 - Tot_About_tab4), (640 - Tot_About_tab5), (1360 - Tot_About_tab6), (1520 - Tot_About_tab7), (800 - Tot_About_tab8), (800 - Tot_About_tab9), (560 - Tot_About_tab10), (800 - Tot_About_tab12), (1200 - Tot_About_tab13), (800 - Tot_About_tab14), (1680 - Tot_About_tab15), (800 - Tot_About_tab16), (640 - Tot_About_tab17), (1120 - Tot_About_tab18), (1360 - Tot_About_tab19), (800 - Tot_About_tab20), (800 - Tot_About_tab21), (1120 - Tot_About_tab54), (20960 - Tot_About_tab)),
+`Est Days Required` = c(0, (round(((2640 - Tot_About_tab3)/round((Tot_About_tab3/15),0)/4), 0)), (round(((720 - Tot_About_tab4)/round((Tot_About_tab4/15),0)/1), 0)), 0, (round(((1360 - Tot_About_tab6)/round((Tot_About_tab6/15),0)/1), 0)), (round(((1520 - Tot_About_tab7)/round((Tot_About_tab7/15),0)/2), 0)), (round(((800 - Tot_About_tab8)/round((Tot_About_tab8/15),0)/1), 0)), 0, (round(((560 - Tot_About_tab10)/round((Tot_About_tab10/15),0)/1), 0)), 0, (round(((1200 - Tot_About_tab13)/round((Tot_About_tab13/15),0)/1), 0)), (round(((800 - Tot_About_tab14)/round((Tot_About_tab14/15),0)/1), 0)), (round(((1680 - Tot_About_tab15)/round((Tot_About_tab15/15),0)/1), 0)), 0, 0, (round(((1120 - Tot_About_tab18)/round((Tot_About_tab18/15),0)/1), 0)), (round(((1360 - Tot_About_tab19)/round((Tot_About_tab19/15),0)/2), 0)), (round(((800 - Tot_About_tab20)/round((Tot_About_tab20/15),0)/1), 0)), 0, (round(((1120 - Tot_About_tab54)/round((Tot_About_tab54/15),0)/1), 0)), ""))
 
 ft <- flextable(df_table)
 ft <- set_header_labels(ft,
                         Data.Tab = "LGA",
-                        Total.Number = "Total Number")
+                        EAs = "EAs",
+                        Households.Expected = "Households Expected",
+                        Total.Number = "Household Done",
+                        Household.Balance = "Household Balance",
+                        Est.Days.Required = "*Est Days Required")
 ft <- theme_vanilla(ft)
 ft <- set_table_properties(ft, layout = "autofit")
 ft <- set_caption(ft, caption = "Household done per LGA")
 ft
 ```
+*Please note: Alimosho (4 Groups Expected), Agege (2 Groups Expected), Apapa (2 Groups Expected), Epe (needs to update before we determine).   
 
 \newpage
 ```{r ck_5, echo=FALSE, message=FALSE, include=TRUE, warning=FALSE}
@@ -650,8 +657,13 @@ About_the_household <- About_the_household %>%
                  ,(About_the_household$date_of_mapping == "2024-03-16")  ~ 12
                  ,(About_the_household$date_of_mapping == "2024-03-17")  ~ 13
                  ,(About_the_household$date_of_mapping == "2024-03-18")  ~ 14
-                 ,(About_the_household$date_of_mapping == "2024-03-19")  ~ 15)
+                 ,(About_the_household$date_of_mapping == "2024-03-19")  ~ 15
+                 ,(About_the_household$date_of_mapping == "2024-03-20")  ~ 16
+                 ,(About_the_household$date_of_mapping == "2024-03-21")  ~ 17
+                 ,(About_the_household$date_of_mapping == "2024-03-22")  ~ 18)
              , .after = "date_of_mapping")
+
+write_xlsx(About_the_household, "About_the_household.xlsx")
 
 trend_df = data.frame()
 #

@@ -132,6 +132,7 @@ data_personel <- data_personel %>%
   add_column(Enumerator = 
                paste(data_personel$Mapper, data_personel$Lister, sep="\n", collapse=NULL)
              , .after = "Lister")
+
 data_personel <- data_personel %>%
   dplyr::select(lga_name, data_entry_personnel, Enumerator)
 
@@ -145,7 +146,7 @@ House_Mapping_1 <- House_Mapping %>%
   dplyr::filter(data_entry_personnel.x == data_entry_personnel.y)
 
 House_Mapping_2 <- House_Mapping %>%
-  dplyr::filter(date_of_mapping == "2024-03-16")
+  dplyr::filter((date_of_mapping == "2024-03-16") | (date_of_mapping == "2024-03-17") | (date_of_mapping == "2024-03-18") | (date_of_mapping == "2024-03-19") | (date_of_mapping == "2024-03-20") | (date_of_mapping == "2024-03-21") | (date_of_mapping == "2024-03-22") | (date_of_mapping == "2024-03-23"))
 
 House_Mapping <- rbind(House_Mapping_1, House_Mapping_2)
 
@@ -221,6 +222,11 @@ About_the_household <-
     report_id  = 43,
     raw_or_label = "label"
   )$data
+
+# About_the_household <- About_the_household %>%
+#   left_join(House_Mapping_Joiner, by = 'record_id')
+# 
+# write_xlsx(About_the_household, "Unclean_About_the_household.xlsx")
 
 About_the_household <- About_the_household %>%
   dplyr::filter(!is.na(about_household))
@@ -374,7 +380,6 @@ Tot_No_tot_num_girl_women_cur_preg <- Tot_No_tot_num_girl_women_cur_preg %>%
   add_column(about_household_2 = as.character(Tot_No_tot_num_girl_women_cur_preg$about_household)
              , .after = "about_household")
 
-
 Tot_No_tot_num_girl_women_cur_preg_Joined <- 
   left_join(Tot_No_tot_num_girl_women_cur_preg, Pregnant_woman, by = c('record_id'='record_id', 'about_household_2'='preg_woman_household_no'))
 
@@ -440,9 +445,12 @@ Tot_No_tot_women_delivered_died_Joined <- Tot_No_tot_women_delivered_died_Joined
   dplyr::filter(row_number()==1) %>%
   dplyr::filter(is.na(Selection))
 
-# drop_columns <- c('about_household_2', 'tot_num_girl_women_cur_preg', 'tot_num_women_del', 'did_woman_die', 'was_woman_die_preg', 'tot_women_delivered_died', 'tot_women_baby_alive_not', 'tot_baby_alive_not', 'lose_baby_womb', 'tot_babies_lost_womb', 'Status.x', 'do_they_live_in_this_house', 'preg_woman_age', 'when_are_they_expected_to', 'do_they_expect_to_still_be', 'lga_name.y', 'mapping_id.y', 'data_entry_personnel.y', 'date_of_mapping.y', 'Enumerator.y', 'Status.y', 'Selection')
-# Tot_No_tot_num_girl_women_cur_preg_Joined <- Tot_No_tot_num_girl_women_cur_preg_Joined %>%
-#   select(-one_of(drop_columns))
+drop_columns <- c('about_household_2', 'tot_num_girl_women_cur_preg', 'tot_num_women_del', 'did_woman_die', 'was_woman_die_preg', 'tot_women_delivered_died', 'tot_women_baby_alive_not', 'tot_baby_alive_not', 'lose_baby_womb', 'tot_babies_lost_womb', 'Status.x', 'do_they_live_in_this_house', 'preg_woman_age', 'when_are_they_expected_to', 'do_they_expect_to_still_be', 'lga_name.y', 'mapping_id.y', 'data_entry_personnel.y', 'date_of_mapping.y', 'Enumerator.y', 'Status.y', 'Selection')
+Tot_No_tot_num_girl_women_cur_preg_Joined <- Tot_No_tot_num_girl_women_cur_preg_Joined %>%
+  select(-one_of(drop_columns))
+
+Tot_No_tot_women_delivered_died_Joined <- 
+  left_join(Tot_No_tot_women_delivered_died_Joined, Household_selecter, by = c('record_id'='record_id', 'about_household' = 'household_no'))
 
 write_xlsx(Tot_No_tot_women_delivered_died_Joined, "Maternal_death_tracking.xlsx")
 
@@ -482,21 +490,24 @@ Tot_No_tot_babies_lost_womb_perc = round((Tot_No_tot_babies_lost_womb_Act * 100)
 
 write_xlsx(Stillbirth, "Stillbirth.xlsx")
 
-# Tot_No_tot_babies_lost_womb <- Tot_No_tot_babies_lost_womb %>%
-#   add_column(about_household_2 = as.character(Tot_No_tot_babies_lost_womb$about_household)
-#              , .after = "about_household")
+Tot_No_tot_babies_lost_womb <- Tot_No_tot_babies_lost_womb %>%
+  add_column(about_household_2 = as.character(Tot_No_tot_babies_lost_womb$about_household)
+             , .after = "about_household")
 
 Tot_No_tot_babies_lost_womb_Joined <- 
-  left_join(Tot_No_tot_babies_lost_womb, Stillbirth, by = c('record_id'='record_id', 'about_household'='stillbirth_household_number'))
+  left_join(Tot_No_tot_babies_lost_womb, Stillbirth, by = c('record_id'='record_id', 'about_household_2'='stillbirth_household_number'))
 
 Tot_No_tot_babies_lost_womb_Joined <- Tot_No_tot_babies_lost_womb_Joined %>%
   group_by(record_id) %>%
   dplyr::filter(row_number()==1) %>%
   dplyr::filter(is.na(Selection))
 
-# drop_columns <- c('about_household_2', 'tot_num_girl_women_cur_preg', 'tot_num_women_del', 'did_woman_die', 'was_woman_die_preg', 'tot_women_delivered_died', 'tot_women_baby_alive_not', 'tot_baby_alive_not', 'lose_baby_womb', 'tot_babies_lost_womb', 'Status.x', 'do_they_live_in_this_house', 'preg_woman_age', 'when_are_they_expected_to', 'do_they_expect_to_still_be', 'lga_name.y', 'mapping_id.y', 'data_entry_personnel.y', 'date_of_mapping.y', 'Enumerator.y', 'Status.y', 'Selection')
-# Tot_No_tot_num_girl_women_cur_preg_Joined <- Tot_No_tot_num_girl_women_cur_preg_Joined %>%
-#   select(-one_of(drop_columns))
+drop_columns <- c('about_household_2', 'tot_num_girl_women_cur_preg', 'tot_num_women_del', 'did_woman_die', 'was_woman_die_preg', 'tot_women_delivered_died', 'tot_women_baby_alive_not', 'tot_baby_alive_not', 'lose_baby_womb', 'tot_babies_lost_womb', 'Status.x', 'do_they_live_in_this_house', 'preg_woman_age', 'when_are_they_expected_to', 'do_they_expect_to_still_be', 'lga_name.y', 'mapping_id.y', 'data_entry_personnel.y', 'date_of_mapping.y', 'Enumerator.y', 'Status.y', 'Selection')
+Tot_No_tot_babies_lost_womb_Joined <- Tot_No_tot_babies_lost_womb_Joined %>%
+  select(-one_of(drop_columns))
+
+Tot_No_tot_babies_lost_womb_Joined <- 
+  left_join(Tot_No_tot_babies_lost_womb_Joined, Household_selecter, by = c('record_id'='record_id', 'about_household' = 'household_no'))
 
 write_xlsx(Tot_No_tot_babies_lost_womb_Joined, "Stillbirth_tracking.xlsx")
 
@@ -505,10 +516,6 @@ date_the_death_happened_baby_Act <- Stillbirth %>%
   nrow()
 
 date_the_death_happened_baby_perc = round((date_the_death_happened_baby_Act * 100) / Tot_No_tot_babies_lost_womb_Act)
-
-Tot_No_tot_women_delivered_died
-Tot_No_tot_babies_lost_womb
-Tot_No_tot_num_girl_women_cur_preg
 
 # Key Data Statistics
 df_table <- data.frame(`Data Items` = c("Total number of building", "Geolocation", "Total No. of households", "About the household", "Pregnant women", "Maternal death", "Stillbirth", "Dates entered for exp. delivery", "Dates entered for maternal death", "Dates entered for stillbirth"),
@@ -660,7 +667,10 @@ About_the_household <- About_the_household %>%
                  ,(About_the_household$date_of_mapping == "2024-03-19")  ~ 15
                  ,(About_the_household$date_of_mapping == "2024-03-20")  ~ 16
                  ,(About_the_household$date_of_mapping == "2024-03-21")  ~ 17
-                 ,(About_the_household$date_of_mapping == "2024-03-22")  ~ 18)
+                 ,(About_the_household$date_of_mapping == "2024-03-22")  ~ 18
+                 ,(About_the_household$date_of_mapping == "2024-03-23")  ~ 19
+                 ,(About_the_household$date_of_mapping == "2024-03-24")  ~ 20)
+             
              , .after = "date_of_mapping")
 
 write_xlsx(About_the_household, "About_the_household.xlsx")
@@ -669,7 +679,7 @@ trend_df = data.frame()
 #
 # # Defining a for loop with 30 iterations
 
-for (i in 1:18) {
+for (i in 1:20) {
   output = list(i)
 
   # Using rbind() to append the output of one iteration to the dataframe
@@ -697,8 +707,8 @@ colnames(trend_df)<-c("Mapping Day", "Daily Mapping (actual)", "Cumulative Mappi
 
 trend_df['Cumulative Mapping (expected)'] <- NA
 
-for (i in 1:18) {
-  trend_df[i, "Cumulative Mapping (expected)"] <- trunc(i * 1164)
+for (i in 1:20) {
+  trend_df[i, "Cumulative Mapping (expected)"] <- trunc(i * 1048)
 }
 
 # IVON Month of Recruitment
@@ -722,10 +732,12 @@ trend_df <- trend_df %>%
                  ,(as.numeric(trend_df$`Mapping Day`) == 15)  ~ "Day 15"
                  ,(as.numeric(trend_df$`Mapping Day`) == 16)  ~ "Day 16"
                  ,(as.numeric(trend_df$`Mapping Day`) == 17)  ~ "Day 17"
-                 ,(as.numeric(trend_df$`Mapping Day`) == 18)  ~ "Day 18")
+                 ,(as.numeric(trend_df$`Mapping Day`) == 18)  ~ "Day 18"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 19)  ~ "Day 19"
+                 ,(as.numeric(trend_df$`Mapping Day`) == 20)  ~ "Day 20")
              , .after = "Mapping Day")
 
-trend_df['Daily Mapping (expected)'] <- 1164
+trend_df['Daily Mapping (expected)'] <- 1048
 
 trend_df <- trend_df %>%
   move_columns(`Daily Mapping (expected)`, .after = "Day") %>%
@@ -750,7 +762,7 @@ ggplot(trend_df, aes(x = `Mapping Day`)) +
        y = "No. of household",
        color = "Legend",
        title = "Household Trend - Expected vs Actual") +
-  scale_x_continuous(breaks= seq(1, 18, by=1)) +
+  scale_x_continuous(breaks= seq(1, 20, by=1)) +
   scale_y_continuous(breaks= seq(700, 20960, by=700))
 
 ```
@@ -845,14 +857,14 @@ df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Som
                                  `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
 Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
 
-ft <- flextable(df_table)
-ft <- set_header_labels(ft,
-                        Data.Tab = "LGA",
-                        Total.Number = "Total Number")
-ft <- theme_vanilla(ft)
-ft <- set_table_properties(ft, layout = "autofit")
-ft <- set_caption(ft, caption = "Expected delivery per LGA")
-ft
+# ft <- flextable(df_table)
+# ft <- set_header_labels(ft,
+#                         Data.Tab = "LGA",
+#                         Total.Number = "Total Number")
+# ft <- theme_vanilla(ft)
+# ft <- set_table_properties(ft, layout = "autofit")
+# ft <- set_caption(ft, caption = "Expected delivery per LGA")
+# ft
 ```
 
 \newpage
@@ -945,14 +957,14 @@ df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Som
                                  `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
 Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
 
-ft <- flextable(df_table)
-ft <- set_header_labels(ft,
-                        Data.Tab = "LGA",
-                        Total.Number = "Total Number")
-ft <- theme_vanilla(ft)
-ft <- set_table_properties(ft, layout = "autofit")
-ft <- set_caption(ft, caption = "Missing expected delivery dates per LGA")
-ft
+# ft <- flextable(df_table)
+# ft <- set_header_labels(ft,
+#                         Data.Tab = "LGA",
+#                         Total.Number = "Total Number")
+# ft <- theme_vanilla(ft)
+# ft <- set_table_properties(ft, layout = "autofit")
+# ft <- set_caption(ft, caption = "Missing expected delivery dates per LGA")
+# ft
 ```
 
 \newpage
@@ -1044,14 +1056,14 @@ df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Som
                                  `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
 Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
 
-ft <- flextable(df_table)
-ft <- set_header_labels(ft,
-                        Data.Tab = "LGA",
-                        Total.Number = "Total Number")
-ft <- theme_vanilla(ft)
-ft <- set_table_properties(ft, layout = "autofit")
-ft <- set_caption(ft, caption = "Maternal death per LGA")
-ft
+# ft <- flextable(df_table)
+# ft <- set_header_labels(ft,
+#                         Data.Tab = "LGA",
+#                         Total.Number = "Total Number")
+# ft <- theme_vanilla(ft)
+# ft <- set_table_properties(ft, layout = "autofit")
+# ft <- set_caption(ft, caption = "Maternal death per LGA")
+# ft
 ```
 
 \newpage
@@ -1143,14 +1155,14 @@ df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Som
                                  `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
 Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
 
-ft <- flextable(df_table)
-ft <- set_header_labels(ft,
-                        Data.Tab = "LGA",
-                        Total.Number = "Total Number")
-ft <- theme_vanilla(ft)
-ft <- set_table_properties(ft, layout = "autofit")
-ft <- set_caption(ft, caption = "Missing maternal death dates per LGA")
-ft
+# ft <- flextable(df_table)
+# ft <- set_header_labels(ft,
+#                         Data.Tab = "LGA",
+#                         Total.Number = "Total Number")
+# ft <- theme_vanilla(ft)
+# ft <- set_table_properties(ft, layout = "autofit")
+# ft <- set_caption(ft, caption = "Missing maternal death dates per LGA")
+# ft
 ```
 
 \newpage
@@ -1243,14 +1255,14 @@ df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Som
                                  `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
 Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
 
-ft <- flextable(df_table)
-ft <- set_header_labels(ft,
-                        Data.Tab = "LGA",
-                        Total.Number = "Total Number")
-ft <- theme_vanilla(ft)
-ft <- set_table_properties(ft, layout = "autofit")
-ft <- set_caption(ft, caption = "Stillbirth per LGA")
-ft
+# ft <- flextable(df_table)
+# ft <- set_header_labels(ft,
+#                         Data.Tab = "LGA",
+#                         Total.Number = "Total Number")
+# ft <- theme_vanilla(ft)
+# ft <- set_table_properties(ft, layout = "autofit")
+# ft <- set_caption(ft, caption = "Stillbirth per LGA")
+# ft
 ```
 
 \newpage
@@ -1342,12 +1354,12 @@ df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Som
                                  `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
 Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab))
 
-ft <- flextable(df_table)
-ft <- set_header_labels(ft,
-                        Data.Tab = "LGA",
-                        Total.Number = "Total Number")
-ft <- theme_vanilla(ft)
-ft <- set_table_properties(ft, layout = "autofit")
-ft <- set_caption(ft, caption = "Missing stillbirth dates per LGA")
-ft
+# ft <- flextable(df_table)
+# ft <- set_header_labels(ft,
+#                         Data.Tab = "LGA",
+#                         Total.Number = "Total Number")
+# ft <- theme_vanilla(ft)
+# ft <- set_table_properties(ft, layout = "autofit")
+# ft <- set_caption(ft, caption = "Missing stillbirth dates per LGA")
+# ft
 ```

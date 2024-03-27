@@ -34,12 +34,6 @@ for (j in 1:nrow(trend_df_lga)) {
   }
 }
 
-# trend_df_lga["overall_mean"] <- NA
-
-# for (i in nrow(trend_df_lga)){
-#   trend_df_lga[i, ncol(trend_df_lga)] <- sapply(trend_df_lga, mean)
-# }
-
 write_xlsx(trend_df_lga, "daily_trend_lga.xlsx")
 
 EA_LGA <- About_the_household %>%

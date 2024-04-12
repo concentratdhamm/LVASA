@@ -1,0 +1,552 @@
+---
+title: 'Household Mapping and Listing Tool for Verbal Autopsy Study'
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+classoption: portrait
+dfe: format(Sys.time(), '%d %B, %Y %H:%M')
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{r}
+library(writexl)
+library(dplyr)
+library(tidyverse)
+library(sjmisc)
+
+# Return all records and all variables
+House_Mapping <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 40,
+    raw_or_label = "label"
+  )$data
+
+Tot_Records <- House_Mapping %>%
+  nrow()
+
+House_Mapping <- House_Mapping %>%
+  dplyr::filter(!is.na(lga_name))
+
+House_Mapping <- House_Mapping %>%
+  add_column(`Settlement Locality` = 
+               case_when(
+                 (House_Mapping$lga_name == "Agege")  ~ House_Mapping$settlement_locality_1
+                 ,(House_Mapping$lga_name == "Ajeromi")  ~ House_Mapping$settlement_locality_2
+                 ,(House_Mapping$lga_name == "Alimosho")  ~ House_Mapping$settlement_locality_3
+                 ,(House_Mapping$lga_name == "Amuwo odofin")  ~ House_Mapping$settlement_locality_4
+                 ,(House_Mapping$lga_name == "Apapa")  ~ House_Mapping$settlement_locality_5
+                 ,(House_Mapping$lga_name == "Badagry")  ~ House_Mapping$settlement_locality_6
+                 ,(House_Mapping$lga_name == "Epe")  ~ House_Mapping$settlement_locality_7
+                 ,(House_Mapping$lga_name == "Eti-Osa")  ~ House_Mapping$settlement_locality_8
+                 ,(House_Mapping$lga_name == "Ibeju-Lekki")  ~ House_Mapping$settlement_locality_9
+                 ,(House_Mapping$lga_name == "Ifako-Ijaiye")  ~ House_Mapping$settlement_locality_10
+                 ,(House_Mapping$lga_name == "Ikeja")  ~ House_Mapping$settlement_locality_11
+                 ,(House_Mapping$lga_name == "Ikorodu")  ~ House_Mapping$settlement_locality_12
+                 ,(House_Mapping$lga_name == "Kosofe")  ~ House_Mapping$settlement_locality_13
+                 ,(House_Mapping$lga_name == "Lagos Island")  ~ House_Mapping$settlement_locality_14
+                 ,(House_Mapping$lga_name == "Lagos Mainland")  ~ House_Mapping$settlement_locality_15
+                 ,(House_Mapping$lga_name == "Mushin")  ~ House_Mapping$settlement_locality_16
+                 ,(House_Mapping$lga_name == "Ojo")  ~ House_Mapping$settlement_locality_17
+                 ,(House_Mapping$lga_name == "Oshodi-Isolo")  ~ House_Mapping$settlement_locality_18
+                 ,(House_Mapping$lga_name == "Somolu")  ~ House_Mapping$settlement_locality_19
+                 ,(House_Mapping$lga_name == "Surulere")  ~ House_Mapping$settlement_locality_20
+               )
+             , .after = "ward")
+
+House_Mapping_raw <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 48,
+    raw_or_label = "raw"
+  )$data
+
+House_Mapping_raw <- House_Mapping_raw %>%
+  add_column(EA_Code_v2 = 
+               case_when(
+                 (House_Mapping_raw$lga_name == "1")  ~ House_Mapping_raw$settlement_locality_1
+                 ,(House_Mapping_raw$lga_name == "2")  ~ House_Mapping_raw$settlement_locality_2
+                 ,(House_Mapping_raw$lga_name == "3")  ~ House_Mapping_raw$settlement_locality_3
+                 ,(House_Mapping_raw$lga_name == "4")  ~ House_Mapping_raw$settlement_locality_4
+                 ,(House_Mapping_raw$lga_name == "5")  ~ House_Mapping_raw$settlement_locality_5
+                 ,(House_Mapping_raw$lga_name == "6")  ~ House_Mapping_raw$settlement_locality_6
+                 ,(House_Mapping_raw$lga_name == "7")  ~ House_Mapping_raw$settlement_locality_7
+                 ,(House_Mapping_raw$lga_name == "8")  ~ House_Mapping_raw$settlement_locality_8
+                 ,(House_Mapping_raw$lga_name == "9")  ~ House_Mapping_raw$settlement_locality_9
+                 ,(House_Mapping_raw$lga_name == "10")  ~ House_Mapping_raw$settlement_locality_10
+                 ,(House_Mapping_raw$lga_name == "11")  ~ House_Mapping_raw$settlement_locality_11
+                 ,(House_Mapping_raw$lga_name == "12")  ~ House_Mapping_raw$settlement_locality_12
+                 ,(House_Mapping_raw$lga_name == "13")  ~ House_Mapping_raw$settlement_locality_13
+                 ,(House_Mapping_raw$lga_name == "14")  ~ House_Mapping_raw$settlement_locality_14
+                 ,(House_Mapping_raw$lga_name == "15")  ~ House_Mapping_raw$settlement_locality_15
+                 ,(House_Mapping_raw$lga_name == "16")  ~ House_Mapping_raw$settlement_locality_16
+                 ,(House_Mapping_raw$lga_name == "17")  ~ House_Mapping_raw$settlement_locality_17
+                 ,(House_Mapping_raw$lga_name == "18")  ~ House_Mapping_raw$settlement_locality_18
+                 ,(House_Mapping_raw$lga_name == "19")  ~ House_Mapping_raw$settlement_locality_19
+                 ,(House_Mapping_raw$lga_name == "20")  ~ House_Mapping_raw$settlement_locality_20
+               )
+             , .after = "ward")
+
+House_Mapping_raw <- House_Mapping_raw %>%
+  dplyr::select(record_id, EA_Code_v2)
+
+House_Mapping <- House_Mapping %>%
+  left_join(House_Mapping_raw, by = 'record_id')
+
+# # Move certain variables from Laboratory results to Stand properly 
+House_Mapping <- House_Mapping %>%
+  move_columns(EA_Code_v2, .after = "enumeration_code")
+
+drop_columns <- c('redcap_event_name', 'settlement_locality_1', 'settlement_locality_2', 'settlement_locality_3', 'settlement_locality_4', 'settlement_locality_5', 'settlement_locality_6', 'settlement_locality_7', 'settlement_locality_8', 'settlement_locality_9', 'settlement_locality_10', 'settlement_locality_11', 'settlement_locality_12', 'settlement_locality_13', 'settlement_locality_14', 'settlement_locality_15', 'settlement_locality_16', 'settlement_locality_17', 'settlement_locality_18', 'settlement_locality_19', 'settlement_locality_20', 'enumeration_code')
+House_Mapping <- House_Mapping %>%
+  select(-one_of(drop_columns))
+
+write_xlsx(House_Mapping, "House_Mapping_raw_v2.xlsx")
+
+Ex_Dupli_Map_ID <- House_Mapping %>%
+  dplyr::filter(!is.na(mapping_id)) %>%
+  group_by(mapping_id) %>%
+  dplyr::filter(row_number()==1)
+
+Blank_Map_ID <- House_Mapping %>%
+  dplyr::filter(!is.na(mapping_id)) %>%
+  group_by(mapping_id) %>%
+  arrange(creation_date) %>%
+  dplyr::filter(row_number()==1)
+
+Blanks_Map_ID <- House_Mapping %>%
+  dplyr::filter(is.na(mapping_id))
+
+House_Mapping <- rbind(Blank_Map_ID, Blanks_Map_ID)
+
+```
+
+\newpage
+```{r}
+library(flextable)
+
+Tot_Building <- House_Mapping %>%
+  nrow()
+
+Tot_Duplicates <- Tot_Records - Tot_Building
+
+Tot_Building_EA <- House_Mapping %>%
+  dplyr::filter(!is.na(EA_Code_v2)) %>%
+  nrow()
+
+Tot_Residential <- House_Mapping %>%
+  dplyr::filter(!is.na(EA_Code_v2) & building_type != "Non-residential") %>%
+  nrow()
+
+Tot_Non_Residential <- House_Mapping %>%
+  dplyr::filter(!is.na(EA_Code_v2) & building_type == "Non-residential") %>%
+  nrow()
+
+House_Mapping <- House_Mapping %>%
+   dplyr::filter(!is.na(EA_Code_v2) & building_type != "Non-residential")
+
+# Extract Date 
+House_Mapping <- House_Mapping %>%
+  add_column(date_of_mapping = format(str_sub(House_Mapping$creation_date,1,10), format = "%Y-%m-%d")
+             , .after = "creation_date")
+
+# Return all records and all variables
+Geolocation <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 41,
+    raw_or_label = "label"
+  )$data
+
+drop_columns <- c('redcap_event_name')
+Geolocation <- Geolocation %>%
+  select(-one_of(drop_columns))
+
+House_Mapping <- House_Mapping %>%
+  left_join(Geolocation, by = 'record_id')
+
+Tot_Geo_Act <- House_Mapping %>%
+  dplyr::filter(!is.na(geolocation_of_house_lat) & !is.na(geolocation_of_house_longi)) %>%
+ nrow()
+
+Tot_Geo_perc = round((Tot_Geo_Act * 100) / Tot_Residential)
+
+House_Mapping['Status'] <- "Approved"
+
+write_xlsx(House_Mapping, "House_Mapping_v2.xlsx")
+
+# Return all records and all variables
+Household_Q11_22 <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 42,
+    raw_or_label = "label"
+  )$data
+
+Household_Q11_22 <- Household_Q11_22 %>%
+  dplyr::filter(redcap_repeat_instrument == "Household - Q11-22")
+
+write_xlsx(Household_Q11_22, "Household_Q11_22_raw_v2.xlsx")
+
+House_Mapping_Joiner <- House_Mapping %>%
+  dplyr::select(record_id, lga_name, `Settlement Locality`, EA_Code_v2, address, description_to_aid_house, mapping_id, data_entry_personnel, date_of_mapping, Status)
+
+Household_Q11_22 <- rename(Household_Q11_22, household_no = redcap_repeat_instance)
+
+Household_Q11_22 <- Household_Q11_22 %>%
+  group_by(record_id)
+
+Household_Q11_22 <- Household_Q11_22 %>%
+  left_join(House_Mapping_Joiner, by = 'record_id')
+
+Household_Q11_22 <- Household_Q11_22 %>%
+  dplyr::filter(!is.na(Status))
+
+drop_columns <- c('redcap_event_name', 'redcap_repeat_instrument')
+Household_Q11_22 <- Household_Q11_22 %>%
+  select(-one_of(drop_columns))
+
+Household_Q11_22_Joiner <- Household_Q11_22 %>%
+  dplyr::select(record_id, respondent_name, respondent_name_2, name_of_household_head, household_head_phone_number, name_of_alternative_respond, alternative_phone_number, preferred_day_to_call, preferred_time_to_call)
+
+Household_selecter <- Household_Q11_22 %>%
+  dplyr::select(record_id, household_no, description_to_aid_locatio, respondent_name, name_of_household_head, household_head_phone_number, alternative_phone_number, preferred_day_to_call, preferred_time_to_call)
+
+write_xlsx(Household_Q11_22, "Household_Q11_22_v2.xlsx")
+
+# Return all records and all variables
+About_the_household <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 43,
+    raw_or_label = "label"
+  )$data
+
+write_xlsx(About_the_household, "About_the_household_raw_v2.xlsx")
+
+About_the_household <- About_the_household %>%
+  dplyr::filter(!is.na(about_household))
+
+About_the_household <- About_the_household %>%
+  group_by(record_id)
+
+About_the_household <- About_the_household %>%
+  left_join(House_Mapping_Joiner, by = 'record_id')
+
+About_the_household <- About_the_household %>%
+  dplyr::filter(!is.na(Status))
+
+drop_columns <- c('redcap_event_name')
+About_the_household <- About_the_household %>%
+  select(-one_of(drop_columns))
+
+Tot_No_Household <- House_Mapping %>%
+  dplyr::filter(!is.na(number_of_households_in_th))
+
+Tot_No_Household_Exp <- sum(unlist(Tot_No_Household[, 'number_of_households_in_th']))
+
+Tot_About_household_Act <- About_the_household %>%
+  nrow()
+
+Tot_About_household_perc = round((Tot_About_household_Act * 100) / Tot_No_Household_Exp)
+
+write_xlsx(About_the_household, "About_the_household_v2.xlsx")
+
+drop_columns <- c('redcap_repeat_instance')
+#pregnant_woman
+Pregnant_woman <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 44,
+    raw_or_label = "label"
+  )$data
+
+write_xlsx(Pregnant_woman, "Pregnant_woman_raw_v2.xlsx")
+
+drop_columns <- c('redcap_event_name')
+Pregnant_woman <- Pregnant_woman %>%
+  select(-one_of(drop_columns))
+
+Pregnant_woman <- Pregnant_woman %>%
+  group_by(record_id)
+
+Pregnant_woman <- Pregnant_woman %>%
+  left_join(House_Mapping_Joiner, by = 'record_id')
+
+Pregnant_woman <- Pregnant_woman %>%
+  dplyr::filter(!is.na(Status))
+
+Tot_No_tot_num_girl_women_cur_preg <- About_the_household %>%
+  dplyr::filter(!is.na(tot_num_girl_women_cur_preg) & tot_num_girl_women_cur_preg > 0 & ((confirmation_pregnant_women != "Yes") | is.na(confirmation_pregnant_women)))
+
+Tot_No_tot_num_girl_women_cur_preg_Exp <- sum(unlist(Tot_No_tot_num_girl_women_cur_preg[, 'tot_num_girl_women_cur_preg']))
+
+Pregnant_woman['Selection'] <- "No"
+
+for (i in 1:nrow(Pregnant_woman)) {
+  temp_record_id <- as.character(Pregnant_woman[i, "record_id"])
+  temp_About_the_household <- Tot_No_tot_num_girl_women_cur_preg %>%
+    dplyr::filter(record_id == temp_record_id)
+  if(nrow(temp_About_the_household) > 0){
+    for (j in 1:nrow(temp_About_the_household)) {
+      if(temp_About_the_household[j, "tot_num_girl_women_cur_preg"] > 0 & !is.na(temp_About_the_household[j, "tot_num_girl_women_cur_preg"])){
+        Pregnant_woman[i, "Selection"] <- "Yes"
+      }
+      }
+  }
+}
+
+Pregnant_woman <- Pregnant_woman %>%
+  dplyr::filter(Selection == "Yes")
+
+Tot_No_tot_num_girl_women_cur_preg_Act <- Pregnant_woman %>%
+  nrow()
+
+Tot_No_tot_num_girl_women_cur_preg_perc = round((Tot_No_tot_num_girl_women_cur_preg_Act * 100) / Tot_No_tot_num_girl_women_cur_preg_Exp)
+
+write_xlsx(Pregnant_woman, "Pregnant_woman_v2.xlsx")
+
+#maternal_death
+Maternal_death <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 45,
+    raw_or_label = "label"
+  )$data
+
+write_xlsx(Maternal_death, "Maternal_death_raw_v2.xlsx")
+
+drop_columns <- c('redcap_event_name')
+Maternal_death <- Maternal_death %>%
+  select(-one_of(drop_columns))
+
+Maternal_death <- Maternal_death %>%
+  group_by(record_id)
+
+Maternal_death <- Maternal_death %>%
+  left_join(House_Mapping_Joiner, by = 'record_id')
+
+Maternal_death <- Maternal_death %>%
+  dplyr::filter(!is.na(Status))
+
+Tot_No_tot_women_delivered_died <- About_the_household %>%
+  dplyr::filter(!is.na(tot_women_delivered_died) & tot_women_delivered_died > 0 & ((confirmation_maternal_death != "Yes") | is.na(confirmation_maternal_death)))
+
+Tot_No_tot_women_delivered_died_Exp <- sum(unlist(Tot_No_tot_women_delivered_died[, 'tot_women_delivered_died']))
+
+Maternal_death['Selection'] <- "No"
+
+for (i in 1:nrow(Maternal_death)) {
+  temp_record_id <- as.character(Maternal_death[i, "record_id"])
+  temp_About_the_household <- Tot_No_tot_women_delivered_died %>%
+    dplyr::filter(record_id == temp_record_id)
+  if(nrow(temp_About_the_household) > 0){
+    for (j in 1:nrow(temp_About_the_household)) {
+      if(temp_About_the_household[j, "tot_women_delivered_died"] > 0 & !is.na(temp_About_the_household[j, "tot_women_delivered_died"])){
+        Maternal_death[i, "Selection"] <- "Yes"
+      }
+      }
+  }
+}
+
+Maternal_death <- Maternal_death %>%
+  dplyr::filter(Selection == "Yes")
+
+Tot_No_tot_women_delivered_died_Act <- Maternal_death %>%
+  nrow()
+
+Tot_No_tot_women_delivered_died_perc = round((Tot_No_tot_women_delivered_died_Act * 100) / Tot_No_tot_women_delivered_died_Exp)
+
+write_xlsx(Maternal_death, "Maternal_death_v2.xlsx")
+
+#stillbirth
+Stillbirth <-
+  REDCapR::redcap_report(
+    redcap_uri = "https://live.cctris.org/redcap_v13.7.1/API/",
+    token      = "02814B207A231775DB2EDE53D3F9E014",
+    report_id  = 46,
+    raw_or_label = "label"
+  )$data
+
+write_xlsx(Stillbirth, "Stillbirth_raw_v2.xlsx")
+
+drop_columns <- c('redcap_event_name')
+Stillbirth <- Stillbirth %>%
+  select(-one_of(drop_columns))
+
+Stillbirth <- Stillbirth %>%
+  group_by(record_id)
+
+Stillbirth <- Stillbirth %>%
+  left_join(House_Mapping_Joiner, by = 'record_id')
+
+Stillbirth <- Stillbirth %>%
+  dplyr::filter(!is.na(Status))
+
+Tot_No_tot_babies_lost_womb <- About_the_household %>%
+  dplyr::filter(!is.na(tot_babies_lost_womb) & tot_babies_lost_womb > 0 & ((confirmation != "Yes") | is.na(confirmation)))
+
+Tot_No_tot_babies_lost_womb_Exp <- sum(unlist(Tot_No_tot_babies_lost_womb[, 'tot_babies_lost_womb']))
+
+Stillbirth['Selection'] <- "No"
+
+for (i in 1:nrow(Stillbirth)) {
+  temp_record_id <- as.character(Stillbirth[i, "record_id"])
+  temp_About_the_household <- Tot_No_tot_babies_lost_womb %>%
+    dplyr::filter(record_id == temp_record_id)
+  if(nrow(temp_About_the_household) > 0){
+    for (j in 1:nrow(temp_About_the_household)) {
+      if(temp_About_the_household[j, "tot_babies_lost_womb"] > 0 & !is.na(temp_About_the_household[j, "tot_babies_lost_womb"])){
+        Stillbirth[i, "Selection"] <- "Yes"
+      }
+    }
+  }
+}
+
+Stillbirth <- Stillbirth %>%
+  dplyr::filter(Selection == "Yes")
+
+Tot_No_tot_babies_lost_womb_Act <- Stillbirth %>%
+  nrow()
+
+Tot_No_tot_babies_lost_womb_perc = round((Tot_No_tot_babies_lost_womb_Act * 100) / Tot_No_tot_babies_lost_womb_Exp)
+
+write_xlsx(Stillbirth, "Stillbirth_v2.xlsx")
+
+# Key Data Statistics
+df_table <- data.frame(`Data Items` = c("Total records (buildings) on REDCap", "Duplicate/blank records (buildings)", "Total valid buildings", "Total buildings with EA Code", "Total Residential", "Total Non-residential", "Geolocation", "Total No. of households", "About the household", "Pregnant women", "Maternal death", "Stillbirth"),
+                                 `Expected No` = c("", "", "", "", "", "", Tot_Residential, "", Tot_No_Household_Exp, Tot_No_tot_num_girl_women_cur_preg_Exp, Tot_No_tot_women_delivered_died_Exp, Tot_No_tot_babies_lost_womb_Exp),
+                                 `Actual No` = c(Tot_Records, Tot_Duplicates, Tot_Building, Tot_Building_EA, Tot_Residential, Tot_Non_Residential, Tot_Geo_Act, Tot_No_Household_Exp, Tot_About_household_Act, Tot_No_tot_num_girl_women_cur_preg_Act, Tot_No_tot_women_delivered_died_Act, Tot_No_tot_babies_lost_womb_Act),
+                                 `Percentage` = c("", "", "", "", "", "", Tot_Geo_perc, "", Tot_About_household_perc, Tot_No_tot_num_girl_women_cur_preg_perc, Tot_No_tot_women_delivered_died_perc, Tot_No_tot_babies_lost_womb_perc))
+
+ft <- flextable(df_table)
+ft <- set_header_labels(ft,
+                        Data.Items = "Data Items",
+                        Expected.No = "Expected No.",
+                        Actual.No = "Actual No.",
+                        Percentage = "Percentage")
+ft <- theme_vanilla(ft)
+ft <- set_table_properties(ft, layout = "autofit")
+ft <- set_caption(ft, caption = "Key Data Completeness Statistics")
+ft
+```
+
+\newpage
+```{r}
+Tot_About_tab2 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ibeju-Lekki") %>%
+  nrow()
+  
+Tot_About_tab3 <- About_the_household %>%
+  dplyr::filter(lga_name == "Alimosho") %>%
+  nrow()
+  
+Tot_About_tab4 <- About_the_household %>%
+  dplyr::filter(lga_name == "Badagry") %>%
+  nrow()
+  
+Tot_About_tab5 <- About_the_household %>%
+  dplyr::filter(lga_name == "Somolu") %>%
+  nrow()
+  
+Tot_About_tab6 <- About_the_household %>%
+  dplyr::filter(lga_name == "Lagos Mainland") %>%
+  nrow()
+  
+Tot_About_tab7 <- About_the_household %>%
+  dplyr::filter(lga_name == "Agege") %>%
+  nrow()
+
+Tot_About_tab8 <- About_the_household %>%
+  dplyr::filter(lga_name == "Surulere") %>%
+  nrow()
+  
+Tot_About_tab9 <- About_the_household %>%
+  dplyr::filter(lga_name == "Oshodi-Isolo") %>%
+  nrow()
+  
+Tot_About_tab10 <- About_the_household %>%
+  dplyr::filter(lga_name == "Lagos Island") %>%
+  nrow()
+  
+Tot_About_tab12 <- About_the_household %>%
+  dplyr::filter(lga_name == "Mushin") %>%
+  nrow()
+  
+Tot_About_tab13 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ajeromi") %>%
+  nrow()
+
+Tot_About_tab14 <- About_the_household %>%
+  dplyr::filter(lga_name == "Kosofe") %>%
+  nrow()
+  
+Tot_About_tab15 <- About_the_household %>%
+  dplyr::filter(lga_name == "Amuwo odofin") %>%
+  nrow()
+  
+Tot_About_tab16 <- About_the_household %>%
+  dplyr::filter(lga_name == "Epe") %>%
+  nrow()
+
+Tot_About_tab17 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ikeja") %>%
+  nrow()
+  
+Tot_About_tab18 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ikorodu") %>%
+  nrow()
+  
+Tot_About_tab19 <- About_the_household %>%
+  dplyr::filter(lga_name == "Apapa") %>%
+  nrow()
+  
+Tot_About_tab20 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ojo") %>%
+  nrow()
+
+Tot_About_tab21 <- About_the_household %>%
+  dplyr::filter(lga_name == "Eti-Osa") %>%
+  nrow()
+
+Tot_About_tab54 <- About_the_household %>%
+  dplyr::filter(lga_name == "Ifako-Ijaiye") %>%
+  nrow()
+  
+Tot_About_tab <- Tot_About_tab2 + Tot_About_tab3 + Tot_About_tab4 + Tot_About_tab5 + Tot_About_tab6 + Tot_About_tab7 + Tot_About_tab8 + Tot_About_tab9 + Tot_About_tab10 + Tot_About_tab12 + Tot_About_tab13 + Tot_About_tab14 + Tot_About_tab15 + Tot_About_tab16 + Tot_About_tab17 + Tot_About_tab18 + Tot_About_tab19 + Tot_About_tab20 + Tot_About_tab21 + Tot_About_tab54
+
+# About household
+df_table <- data.frame(`Data Tab` = c("Ibeju-Lekki", "Alimosho", "Badagry", "Somolu", "Lagos Mainland", "Agege", "Surulere", "Oshodi-Isolo", "Lagos Island", "Mushin", "Ajeromi", "Kosofe", "Amuwo odofin", "Epe", "Ikeja", "Ikorodu", "Apapa", "Ojo", "Eti-Osa", "Ifako-Ijaiye", "Grand Total"),
+                       `EAs` = c("10", "33", "9", "8", "17", "19", "10", "10", "7", "10", "15", "10", "21", "10", "8", "14", "17", "10", "10", "14", "262"),
+                      `Households Expected` = c(800, 2640, 720, 640, 1360, 1520, 800, 800, 560, 800, 1200, 800, 1680, 800, 640, 1120, 1360, 800, 800, 1120, 20960),
+                                 `Total Number` = c(Tot_About_tab2, Tot_About_tab3, Tot_About_tab4, Tot_About_tab5, 
+Tot_About_tab6, Tot_About_tab7, Tot_About_tab8, Tot_About_tab9, Tot_About_tab10, Tot_About_tab12, Tot_About_tab13, Tot_About_tab14, Tot_About_tab15, Tot_About_tab16, Tot_About_tab17, Tot_About_tab18, Tot_About_tab19, Tot_About_tab20, Tot_About_tab21, Tot_About_tab54, Tot_About_tab),
+`Household Balance` = c((800 - Tot_About_tab2), (2640 - Tot_About_tab3), (720 - Tot_About_tab4), (640 - Tot_About_tab5), (1360 - Tot_About_tab6), (1520 - Tot_About_tab7), (800 - Tot_About_tab8), (800 - Tot_About_tab9), (560 - Tot_About_tab10), (800 - Tot_About_tab12), (1200 - Tot_About_tab13), (800 - Tot_About_tab14), (1680 - Tot_About_tab15), (800 - Tot_About_tab16), (640 - Tot_About_tab17), (1120 - Tot_About_tab18), (1360 - Tot_About_tab19), (800 - Tot_About_tab20), (800 - Tot_About_tab21), (1120 - Tot_About_tab54), (20960 - Tot_About_tab)),
+`Est Days Required` = c(0, (round(((2640 - Tot_About_tab3)/round((Tot_About_tab3/15),0)/4), 0)), (round(((720 - Tot_About_tab4)/round((Tot_About_tab4/15),0)/1), 0)), 0, (round(((1360 - Tot_About_tab6)/round((Tot_About_tab6/15),0)/1), 0)), (round(((1520 - Tot_About_tab7)/round((Tot_About_tab7/15),0)/2), 0)), (round(((800 - Tot_About_tab8)/round((Tot_About_tab8/15),0)/1), 0)), 0, (round(((560 - Tot_About_tab10)/round((Tot_About_tab10/15),0)/1), 0)), 0, (round(((1200 - Tot_About_tab13)/round((Tot_About_tab13/15),0)/1), 0)), (round(((800 - Tot_About_tab14)/round((Tot_About_tab14/15),0)/1), 0)), (round(((1680 - Tot_About_tab15)/round((Tot_About_tab15/15),0)/1), 0)), 0, 0, (round(((1120 - Tot_About_tab18)/round((Tot_About_tab18/15),0)/1), 0)), (round(((1360 - Tot_About_tab19)/round((Tot_About_tab19/15),0)/2), 0)), (round(((800 - Tot_About_tab20)/round((Tot_About_tab20/15),0)/1), 0)), 0, (round(((1120 - Tot_About_tab54)/round((Tot_About_tab54/15),0)/1), 0)), ""))
+
+ft <- flextable(df_table)
+ft <- set_header_labels(ft,
+                        Data.Tab = "LGA",
+                        EAs = "EAs",
+                        Households.Expected = "Households Expected",
+                        Total.Number = "Household Done",
+                        Household.Balance = "Household Balance",
+                        Est.Days.Required = "*Est Days Required")
+ft <- theme_vanilla(ft)
+ft <- set_table_properties(ft, layout = "autofit")
+ft <- set_caption(ft, caption = "Household done per LGA")
+ft
+```

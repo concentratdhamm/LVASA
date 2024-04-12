@@ -531,7 +531,7 @@ ft <- set_header_labels(ft,
                         Percentage = "Percentage")
 ft <- theme_vanilla(ft)
 ft <- set_table_properties(ft, layout = "autofit")
-ft <- set_caption(ft, caption = "Other Key Data Statistics Completeness")
+ft <- set_caption(ft, caption = "Key Data Completeness Statistics")
 ft
 ```
 

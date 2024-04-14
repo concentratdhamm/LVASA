@@ -132,6 +132,11 @@ House_Mapping <- rbind(Blank_Map_ID, Blanks_Map_ID)
 \newpage
 ```{r}
 library(flextable)
+library(tidygeocoder)
+library(sf)
+library(mapview)
+library(ggmap)
+library(readxl)
 
 Tot_Building <- House_Mapping %>%
   nrow()
@@ -171,8 +176,47 @@ drop_columns <- c('redcap_event_name')
 Geolocation <- Geolocation %>%
   select(-one_of(drop_columns))
 
+Geolocation <- Geolocation %>%
+  add_column(Unique_location = 
+              (Geolocation$geolocation_of_house_lat + Geolocation$geolocation_of_house_longi)
+             , .after = "geolocation_of_house_longi")
+
+Unique_Geo <- Geolocation %>%
+  group_by(Unique_location) %>%
+  dplyr::filter(row_number()==1)
+
+# ggmap::register_google(key = "AIzaSyCn7Unt1qLiWXEh12fofAOfxHkAAl5aHHg", write = TRUE)
+
+# Unique_Geo <- head(Unique_Geo)
+# 
+# Unique_Geo$textAddress <- mapply(FUN = function(lon, lat) revgeocode(c(lon, lat)), Unique_Geo$geolocation_of_house_longi, Unique_Geo$geolocation_of_house_lat)
+
+# Unique_Geo <- Unique_Geo %>%
+#   
+#   # Pretend we don't have the address...
+#   # select(-address) %>%
+#   
+#   # Go from Lat/Lon to Address
+#   tidygeocoder::reverse_geocode(
+#     lat    = geolocation_of_house_lat,
+#     long   = geolocation_of_house_longi,
+#     method = "osm"
+#   )
+
+osm_address <- read_xlsx("House_Mapping_raw_v2_osm.xlsx", guess_max = 20000)
+
+osm_address <- osm_address %>%
+  dplyr::select(record_id, address)
+
+Unique_Geo <- Unique_Geo %>%
+  left_join(osm_address, by = 'record_id')
+
+Unique_Geo <- rename(Unique_Geo, osm_address = address)
+
+Unique_Geo$Unique_location <- "Yes"
+
 House_Mapping <- House_Mapping %>%
-  left_join(Geolocation, by = 'record_id')
+  left_join(Unique_Geo, by = 'record_id')
 
 Tot_Geo_Act <- House_Mapping %>%
   dplyr::filter(!is.na(geolocation_of_house_lat) & !is.na(geolocation_of_house_longi)) %>%
@@ -427,7 +471,7 @@ Tot_No_tot_babies_lost_womb_perc = round((Tot_No_tot_babies_lost_womb_Act * 100)
 write_xlsx(Stillbirth, "Stillbirth_v2.xlsx")
 
 # Key Data Statistics
-df_table <- data.frame(`Data Items` = c("Total records (buildings) on REDCap", "Duplicate/blank records (buildings)", "Total valid buildings", "Total buildings with EA Code", "Total Residential", "Total Non-residential", "Geolocation", "Total No. of households", "About the household", "Pregnant women", "Maternal death", "Stillbirth"),
+df_table <- data.frame(`Data Items` = c("Total records (buildings) on REDCap", "Duplicate/blank records (buildings)", "Total valid buildings", "Total buildings with EA Code", "Total Residential", "Total Non-residential", "Unique Geolocations", "Total No. of households", "About the household", "Pregnant women", "Maternal death", "Stillbirth"),
                                  `Expected No` = c("", "", "", "", "", "", Tot_Residential, "", Tot_No_Household_Exp, Tot_No_tot_num_girl_women_cur_preg_Exp, Tot_No_tot_women_delivered_died_Exp, Tot_No_tot_babies_lost_womb_Exp),
                                  `Actual No` = c(Tot_Records, Tot_Duplicates, Tot_Building, Tot_Building_EA, Tot_Residential, Tot_Non_Residential, Tot_Geo_Act, Tot_No_Household_Exp, Tot_About_household_Act, Tot_No_tot_num_girl_women_cur_preg_Act, Tot_No_tot_women_delivered_died_Act, Tot_No_tot_babies_lost_womb_Act),
                                  `Percentage` = c("", "", "", "", "", "", Tot_Geo_perc, "", Tot_About_household_perc, Tot_No_tot_num_girl_women_cur_preg_perc, Tot_No_tot_women_delivered_died_perc, Tot_No_tot_babies_lost_womb_perc))
@@ -549,4 +593,19 @@ ft <- theme_vanilla(ft)
 ft <- set_table_properties(ft, layout = "autofit")
 ft <- set_caption(ft, caption = "Household done per LGA")
 ft
+```
+
+\newpage
+```{r}
+library(ggmap)
+
+
+# ggmap::register_google(key = "AIzaSyCn7Unt1qLiWXEh12fofAOfxHkAAl5aHHg", write = TRUE)
+
+# get_googlemap(center = "Lagos") %>% ggmap()
+
+point_df <- round(data.frame(
+  x = jitter(rep(-74, 50), amount = 0.05),
+  y = jitter(rep(40.74, 50), amount = 0.05)
+), digits = 2)
 ```

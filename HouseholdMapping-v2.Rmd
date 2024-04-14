@@ -176,6 +176,9 @@ drop_columns <- c('redcap_event_name')
 Geolocation <- Geolocation %>%
   select(-one_of(drop_columns))
 
+House_Mapping <- House_Mapping %>%
+  left_join(Geolocation, by = 'record_id')
+
 Geolocation <- Geolocation %>%
   add_column(Unique_location = 
               (Geolocation$geolocation_of_house_lat + Geolocation$geolocation_of_house_longi)
@@ -203,17 +206,20 @@ Unique_Geo <- Geolocation %>%
 #     method = "osm"
 #   )
 
-osm_address <- read_xlsx("House_Mapping_raw_v2_osm.xlsx", guess_max = 20000)
+# osm_address <- read_xlsx("House_Mapping_raw_v2_osm.xlsx", guess_max = 20000)
 
-osm_address <- osm_address %>%
-  dplyr::select(record_id, address)
-
-Unique_Geo <- Unique_Geo %>%
-  left_join(osm_address, by = 'record_id')
-
-Unique_Geo <- rename(Unique_Geo, osm_address = address)
+# osm_address <- osm_address %>%
+#   dplyr::select(record_id, address)
+# 
+# Unique_Geo <- Unique_Geo %>%
+#   left_join(osm_address, by = 'record_id')
+# 
+# Unique_Geo <- rename(Unique_Geo, osm_address = address)
 
 Unique_Geo$Unique_location <- "Yes"
+
+Unique_Geo <- Unique_Geo %>%
+  dplyr::select(record_id, Unique_location)
 
 House_Mapping <- House_Mapping %>%
   left_join(Unique_Geo, by = 'record_id')
